@@ -165,3 +165,54 @@ impl Transaction {
         self.inputs.len() == 1 && self.inputs[0].id.len() == 0 && self.inputs[0].out == -1
     }
 }
+
+impl std::fmt::Display for TxnInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "
+                ID: {},
+                Out: {},
+                Sig: {},
+            ",
+            hex::encode(&self.id),
+            self.out,
+            self.sig
+        )
+    }
+}
+
+impl std::fmt::Display for TxnOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "
+                Val: {},
+                Pub Key: {}
+            ",
+            self.value, self.pub_key
+        )
+    }
+}
+
+impl std::fmt::Display for Transaction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "
+        Transaction ID: {}
+            Inputs: {}
+            Outputs: {}
+            ",
+            hex::encode(&self.id),
+            self.inputs
+                .iter()
+                .map(|ip| format!("{}", ip))
+                .collect::<String>(),
+            self.outputs
+                .iter()
+                .map(|op| format!("{}", op))
+                .collect::<String>()
+        )
+    }
+}

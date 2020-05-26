@@ -29,6 +29,12 @@ impl BlockChain {
         self.last_hash = last_hash;
     }
 
+    pub fn add_transaction(&mut self, from: &'static str, to: &'static str, amount: i32) {
+        let txn = Transaction::new(from, to, amount, &self);
+        let block = Block::create(vec![txn], self.last_hash.clone());
+        self.add_block(block);
+    }
+
     pub fn find_unspent_transactions(&self, address: &'static str) -> Vec<&Transaction> {
         let mut unspent_transactions: Vec<&Transaction> = Vec::new();
         let mut spent_txos = HashMap::<String, Vec<i32>>::new();
@@ -116,36 +122,20 @@ impl BlockChain {
 
         (accumulated, unspent_outputs)
     }
+}
 
-    pub fn print(&self) {
-        println!("Blockchain");
-        println!("Last Hash: {}", hex::encode(&self.last_hash));
-        println!("\n\nBlocks:");
-
-        for block in &self.blocks {
-            println!("");
-            println!("    Block: {}", hex::encode(&block.hash));
-            println!("    Prev Hash: {}", hex::encode(&block.prev_hash));
-            println!("    Nonce: {}\n", block.nonce);
-            println!("    Transactions:");
-
-            for txn in &block.transactions {
-                println!("        Transaction #");
-                println!("        Inputs:");
-
-                for input in &txn.inputs {
-                    println!("            ID: {}", hex::encode(&input.id));
-                    println!("            Out: {}", input.out);
-                    println!("            Sig: {}", input.sig);
-                }
-
-                println!("        Outputs:");
-
-                for output in &txn.outputs {
-                    println!("            Val: {}", output.value);
-                    println!("            Pub Key: {}", output.pub_key);
-                }
-            }
-        }
+impl std::fmt::Display for BlockChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Blockchain
+Last Hash: {}
+Blocks: {}",
+            hex::encode(&self.last_hash),
+            self.blocks
+                .iter()
+                .map(|b| format!("{}", b))
+                .collect::<String>()
+        )
     }
 }

@@ -4,9 +4,8 @@ use super::transaction::Transaction;
 
 use actix::Message;
 use std::convert::TryInto;
-use std::fmt::{self, Debug, Formatter};
 
-#[derive(Message, Clone)]
+#[derive(Clone, Debug, Message)]
 #[rtype(result = "usize")]
 pub struct Block {
     pub hash: Vec<u8>,
@@ -58,14 +57,23 @@ impl Block {
     }
 }
 
-impl Debug for Block {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl std::fmt::Display for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Block[{}]: with nonce: {} and {} transactions",
-            &hex::encode(&self.hash),
-            &self.nonce,
-            &self.transactions.len()
+            "
+    Block Hash: {}
+    Prev Hash: {}
+    Nonce: {}
+    Transactions: {}
+",
+            hex::encode(&self.hash),
+            hex::encode(&self.prev_hash),
+            self.nonce,
+            self.transactions
+                .iter()
+                .map(|txn| format!("{}", txn))
+                .collect::<String>()
         )
     }
 }

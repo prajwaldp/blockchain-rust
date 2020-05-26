@@ -30,21 +30,10 @@ mod util;
 fn main() {
     let mut bc = blockchain::BlockChain::new("John");
 
-    let txn1 = blockchain::transaction::Transaction::new("John", "Jane", 50, &bc);
-    let blk1 = blockchain::block::Block::create(vec![txn1], bc.last_hash.clone());
-    bc.add_block(blk1);
+    bc.add_transaction("John", "Jane", 50);
+    bc.add_transaction("John", "Jane", 50);
+    bc.add_transaction("Jane", "Joe", 10);
+    bc.add_transaction("Jane", "Joe", 45);
 
-    let txn2 = blockchain::transaction::Transaction::new("John", "Jane", 50, &bc);
-    let blk2 = blockchain::block::Block::create(vec![txn2], bc.last_hash.clone());
-    bc.add_block(blk2);
-
-    let txn3 = blockchain::transaction::Transaction::new("Jane", "Joe", 10, &bc);
-    let blk3 = blockchain::block::Block::create(vec![txn3], bc.last_hash.clone());
-    bc.add_block(blk3);
-
-    let txn4 = blockchain::transaction::Transaction::new("Jane", "Joe", 45, &bc);
-    let blk4 = blockchain::block::Block::create(vec![txn4], bc.last_hash.clone());
-    bc.add_block(blk4);
-
-    bc.print();
+    println!("{}", bc);
 }
