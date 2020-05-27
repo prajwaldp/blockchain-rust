@@ -4,9 +4,9 @@ pub mod block;
 pub mod transaction;
 
 use block::Block;
-use transaction::{Transaction, TxnOutput};
+use transaction::Transaction;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BlockChain {
     pub blocks: Vec<Block>,
     pub last_hash: Vec<u8>,
@@ -23,16 +23,17 @@ impl BlockChain {
         }
     }
 
+    pub fn new_placeholder() -> Self {
+        BlockChain {
+            blocks: vec![],
+            last_hash: vec![],
+        }
+    }
+
     pub fn add_block(&mut self, block: Block) {
         let last_hash = block.hash.clone();
         self.blocks.push(block);
         self.last_hash = last_hash;
-    }
-
-    pub fn add_transaction(&mut self, from: &'static str, to: &'static str, amount: i32) {
-        let txn = Transaction::new(from, to, amount, &self);
-        let block = Block::create(vec![txn], self.last_hash.clone());
-        self.add_block(block);
     }
 
     pub fn find_unspent_transactions(&self, address: &'static str) -> Vec<&Transaction> {
@@ -77,20 +78,20 @@ impl BlockChain {
         unspent_transactions
     }
 
-    pub fn find_unspent_txn_outputs(&self, address: &'static str) -> Vec<&TxnOutput> {
-        let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
-        let unspent_txns = self.find_unspent_transactions(address);
+    // pub fn find_unspent_txn_outputs(&self, address: &'static str) -> Vec<&TxnOutput> {
+    //     let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
+    //     let unspent_txns = self.find_unspent_transactions(address);
 
-        for txn in &unspent_txns {
-            for output in &txn.outputs {
-                if output.can_be_unlocked(address) {
-                    unspent_txn_outputs.push(output);
-                }
-            }
-        }
+    //     for txn in &unspent_txns {
+    //         for output in &txn.outputs {
+    //             if output.can_be_unlocked(address) {
+    //                 unspent_txn_outputs.push(output);
+    //             }
+    //         }
+    //     }
 
-        unspent_txn_outputs
-    }
+    //     unspent_txn_outputs
+    // }
 
     pub fn find_spendable_outputs(
         &self,
@@ -128,7 +129,8 @@ impl std::fmt::Display for BlockChain {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Blockchain
+            "
+Blockchain
 Last Hash: {}
 Blocks: {}",
             hex::encode(&self.last_hash),

@@ -25,15 +25,33 @@
 // }
 
 mod blockchain;
+mod network;
 mod util;
 
+use network::node::Node;
+use network::Network;
+
 fn main() {
-    let mut bc = blockchain::BlockChain::new("John");
+    let mut network = Network::new();
 
-    bc.add_transaction("John", "Jane", 50);
-    bc.add_transaction("John", "Jane", 50);
-    bc.add_transaction("Jane", "Joe", 10);
-    bc.add_transaction("Jane", "Joe", 45);
+    let mut n1 = Node::new("John");
+    let mut n2 = Node::new("Jane");
+    let mut n3 = Node::new("Joe");
 
-    println!("{}", bc);
+    n1.join_network(&mut network);
+    n1.create_blockchain();
+
+    n1.make_transaction_and_mine("Jane", 50);
+
+    println!("{}", n1.blockchain);
+
+    n2.join_network(&mut network);
+    n3.join_network(&mut network);
+
+    // let mut bc = blockchain::BlockChain::new("John");
+    // bc.add_transaction("John", "Jane", 50);
+    // bc.add_transaction("John", "Jane", 50);
+    // bc.add_transaction("Jane", "Joe", 10);
+    // bc.add_transaction("Jane", "Joe", 45);
+    // println!("{}", bc);
 }
