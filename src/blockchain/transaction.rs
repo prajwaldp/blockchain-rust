@@ -1,8 +1,6 @@
 use crate::blockchain::BlockChain;
 use crate::util::traits::Hashable;
 
-use actix::Message;
-
 #[derive(Clone, Debug)]
 pub struct TxnInput {
     pub id: Vec<u8>,       // the hash of the transaction
@@ -51,8 +49,7 @@ impl TxnOutput {
     }
 }
 
-#[derive(Clone, Debug, Message)]
-#[rtype(result = "usize")]
+#[derive(Clone, Debug)]
 pub struct Transaction {
     pub id: Vec<u8>,
     pub inputs: Vec<TxnInput>,

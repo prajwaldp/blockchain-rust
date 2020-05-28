@@ -2,11 +2,9 @@ use crate::util::traits::Hashable;
 
 use super::transaction::Transaction;
 
-use actix::Message;
 use std::convert::TryInto;
 
-#[derive(Clone, Debug, Message)]
-#[rtype(result = "usize")]
+#[derive(Clone, Debug)]
 pub struct Block {
     pub hash: Vec<u8>,
     pub transactions: Vec<Transaction>,

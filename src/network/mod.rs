@@ -1,17 +1,16 @@
+// pub mod messages;
 pub mod node;
 
-use node::Node;
+// use actix::Addr;
+// use node::Node;
 
-pub struct Network {
-    nodes: Vec<Node>,
-}
+// #[derive(Debug)]
+// pub struct Network {
+//     pub nodes: Vec<Addr<Node>>,
+// }
 
-impl Network {
-    pub fn new() -> Self {
-        Network { nodes: vec![] }
-    }
-
-    pub fn add_node(&mut self, node: Node) {
-        self.nodes.push(node);
-    }
-}
+// impl Network {
+//     pub fn new() -> Self {
+//         Network { nodes: vec![] }
+//     }
+// }

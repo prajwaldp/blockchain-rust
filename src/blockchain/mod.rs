@@ -6,7 +6,7 @@ pub mod transaction;
 use block::Block;
 use transaction::Transaction;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BlockChain {
     pub blocks: Vec<Block>,
     pub last_hash: Vec<u8>,
