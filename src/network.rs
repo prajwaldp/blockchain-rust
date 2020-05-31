@@ -4,26 +4,74 @@ pub mod node {
     use crate::blockchain::transaction::Transaction;
     use crate::blockchain::BlockChain;
 
-    use riker::actors::*;
+    use actix::prelude::*;
 
-    #[derive(Clone, Debug)]
+    #[derive(Message)]
+    #[rtype(result = "Result<(), String>")]
     pub struct CreateBlockchain;
 
-    #[derive(Clone, Debug)]
+    #[derive(Message)]
+    #[rtype(result = "Result<(), String>")]
     pub struct AddTransactionAndMine {
         pub from: &'static str,
         pub to: &'static str,
         pub amt: i32,
     }
 
-    #[actor(CreateBlockchain, AddTransactionAndMine)]
+    #[derive(Message)]
+    #[rtype(result = "Result<BlockChain, String>")]
+    pub struct DownloadBlockChainRequest;
+
     pub struct Node {
         pub address: &'static str,
-        pub known_nodes: Vec<Node>,
+        pub known_nodes: Vec<Recipient<DownloadBlockChainRequest>>,
         pub blockchain: BlockChain,
     }
 
     impl Node {
+        pub fn default(address: &'static str) -> Self {
+            Node {
+                address,
+                known_nodes: vec![],
+                blockchain: BlockChain::new_placeholder(),
+            }
+        }
+
+        pub async fn new(
+            address: &'static str,
+            known_nodes: Vec<Recipient<DownloadBlockChainRequest>>,
+        ) -> Self {
+            let mut node = Node {
+                address,
+                known_nodes,
+                blockchain: BlockChain::new_placeholder(),
+            };
+
+            for known_node in &node.known_nodes {
+                let actix_result = known_node.send(DownloadBlockChainRequest).await;
+
+                match actix_result {
+                    Ok(result) => match result {
+                        Ok(blockchain) => {
+                            node.blockchain = blockchain;
+                            println!("Downloaded blockchain successfully");
+                            break;
+                        }
+                        Err(err) => println!(
+                            "[Error] DownloadBlockChainRequest responsed to with {}",
+                            err
+                        ),
+                    },
+
+                    Err(err) => {
+                        println!("[Error] Actix could not send message, failed with {}", err)
+                    }
+                }
+            }
+
+            node
+        }
+
         pub fn create_blockchain(&mut self) {
             self.blockchain = BlockChain::new(&self.address);
         }
@@ -41,45 +89,39 @@ pub mod node {
     }
 
     impl Actor for Node {
-        type Msg = NodeMsg;
-
-        fn recv(&mut self, ctx: &Context<Self::Msg>, msg: Self::Msg, sender: Sender) {
-            self.receive(ctx, msg, sender);
-        }
+        type Context = Context<Self>;
     }
 
-    impl ActorFactoryArgs<&'static str> for Node {
-        fn create_args(address: &'static str) -> Self {
-            Node {
-                address,
-                known_nodes: vec![],
-                blockchain: BlockChain::new_placeholder(),
-            }
-        }
-    }
+    impl Handler<CreateBlockchain> for Node {
+        type Result = Result<(), String>;
 
-    impl Receive<CreateBlockchain> for Node {
-        type Msg = NodeMsg;
-
-        fn receive(&mut self, _ctx: &Context<Self::Msg>, _msg: CreateBlockchain, _sender: Sender) {
+        fn handle(&mut self, _msg: CreateBlockchain, _ctx: &mut Context<Self>) -> Self::Result {
             self.create_blockchain();
-            println!("Created blockchain");
             println!("{}", self.blockchain);
+            Ok(())
         }
     }
 
-    impl Receive<AddTransactionAndMine> for Node {
-        type Msg = NodeMsg;
+    impl Handler<AddTransactionAndMine> for Node {
+        type Result = Result<(), String>;
 
-        fn receive(
-            &mut self,
-            _ctx: &Context<Self::Msg>,
-            msg: AddTransactionAndMine,
-            _sender: Sender,
-        ) {
+        fn handle(&mut self, msg: AddTransactionAndMine, _ctx: &mut Context<Self>) -> Self::Result {
             self.make_transaction_and_mine(msg.from, msg.to, msg.amt);
             println!("Mined transaction");
             println!("{}", self.blockchain);
+            Ok(())
+        }
+    }
+
+    impl Handler<DownloadBlockChainRequest> for Node {
+        type Result = Result<BlockChain, String>;
+
+        fn handle(
+            &mut self,
+            _msg: DownloadBlockChainRequest,
+            _ctx: &mut Context<Self>,
+        ) -> Self::Result {
+            Ok(self.blockchain.clone())
         }
     }
 

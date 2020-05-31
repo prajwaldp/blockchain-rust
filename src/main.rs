@@ -2,24 +2,36 @@ mod blockchain;
 mod network;
 mod util;
 
-use riker::actors::*;
-use std::time::Duration;
-
+use actix::prelude::*;
 use network::node::*;
 
-fn main() {
-    let sys = ActorSystem::new().unwrap();
-    let node1 = sys.actor_of_args::<Node, _>("node1", "John").unwrap();
+#[actix_rt::main]
+async fn main() {
+    let addr = Node::default("John").start();
+    let result = addr.send(CreateBlockchain).await;
 
-    node1.tell(CreateBlockchain, None);
-    node1.tell(
-        AddTransactionAndMine {
+    match result {
+        Ok(_) => (),
+        Err(err) => println!("[Error] CreateBlockChain responsed to with {}", err),
+    }
+
+    let result = addr
+        .send(AddTransactionAndMine {
             from: "John",
             to: "Jane",
             amt: 50,
-        },
-        None,
-    );
+        })
+        .await;
 
-    std::thread::sleep(Duration::from_millis(1500));
+    match result {
+        Ok(_) => (),
+        Err(err) => println!("[Error] CreateBlockChain responsed to with {}", err),
+    }
+
+    // Let's try downloading the blockchain from another node
+
+    let node1 = Node::new("Jane", vec![addr.recipient()]).await;
+    node1.start();
+
+    System::current().stop();
 }
