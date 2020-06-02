@@ -11,3 +11,10 @@ hex = "0.4.2"
 crypto-hash = "0.3.4"
 actix = "0.10.0-alpha.3"
 actix-rt = "1.1"
+rand = "0.6.5"  # Todo: Bump version to 0.7.3
+ripemd160 = "0.8.0"
+bs58 = "0.3.1"
+
+[dependencies.secp256k1]
+version = "0.17.2"
+features = ["rand"]

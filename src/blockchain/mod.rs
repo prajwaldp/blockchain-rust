@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 pub mod block;
 pub mod transaction;
+pub mod txn;
+pub mod wallet;
 
 use block::Block;
 use transaction::Transaction;

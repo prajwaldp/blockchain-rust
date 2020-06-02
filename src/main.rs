@@ -34,4 +34,7 @@ async fn main() {
     node1.start();
 
     System::current().stop();
+
+    let wallet = blockchain::wallet::Wallet::new();
+    println!("{}", wallet);
 }
