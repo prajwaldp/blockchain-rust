@@ -6,17 +6,18 @@ use std::convert::TryInto;
 
 type Bytes = Vec<u8>;
 
+// TODO: Move constants to a module
 const CHECKSUM_LENGTH: usize = 4;
 const VERSION: u8 = 0x00;
 
 #[derive(Debug)]
 pub struct Wallet {
-    private_key: secp256k1::SecretKey,
-    public_key: secp256k1::PublicKey,
-    address: Bytes,
-    public_key_hash: Bytes,
-    checksum: Bytes,
-    full_hash: Bytes,
+    pub private_key: secp256k1::SecretKey,
+    pub public_key: secp256k1::PublicKey,
+    pub address: Bytes,
+    pub public_key_hash: Bytes,
+    pub checksum: Bytes,
+    pub full_hash: Bytes,
 }
 
 impl Wallet {
@@ -43,6 +44,7 @@ impl Wallet {
     }
 
     fn set_public_key_hash(&mut self) {
+        // TODO: Use Wallet::generate_sha256_ripemd160_hash()
         let public_key_hash =
             crypto_hash::digest(crypto_hash::Algorithm::SHA256, &self.public_key.serialize());
 
@@ -75,6 +77,31 @@ impl Wallet {
         second_hash[..CHECKSUM_LENGTH]
             .try_into()
             .expect("expected slice to be 4 bytes long")
+    }
+
+    pub fn generate_sha256_ripemd160_hash(payload: &Bytes) -> Bytes {
+        let public_key_hash = crypto_hash::digest(crypto_hash::Algorithm::SHA256, payload);
+
+        let mut hasher = Ripemd160::new();
+        hasher.input(public_key_hash);
+        let hashed_result = hasher.result();
+        hashed_result.to_vec()
+    }
+
+    pub fn is_address_valid(address: &Bytes) -> bool {
+        let hash = bs58::decode(address).into_vec().unwrap();
+
+        // Destructuring the components of the decoded address
+        let version = hash[0];
+        let public_key_hash = &hash[1..(hash.len() - CHECKSUM_LENGTH)];
+        let actual_checksum = &hash[(hash.len() - CHECKSUM_LENGTH)..];
+
+        let mut new_hash: Bytes = vec![version];
+        new_hash.extend(public_key_hash);
+
+        let target_checksum = Self::generate_checksum(&new_hash);
+
+        actual_checksum == target_checksum
     }
 }
 

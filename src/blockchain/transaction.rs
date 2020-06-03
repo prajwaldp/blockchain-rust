@@ -1,6 +1,12 @@
 use crate::blockchain::txn::{TxnInput, TxnOutput};
+use crate::blockchain::wallet::Wallet;
 use crate::blockchain::BlockChain;
 use crate::util::traits::Hashable;
+
+use secp256k1::{Message, Secp256k1};
+use std::collections::HashMap;
+
+type Bytes = Vec<u8>;
 
 #[derive(Clone, Debug)]
 pub struct Transaction {
@@ -32,11 +38,13 @@ impl Hashable for Transaction {
 }
 
 impl Transaction {
-    pub fn new(from: &'static str, to: &'static str, amount: i32, chain: &BlockChain) -> Self {
+    pub fn new(from: Bytes, to: Bytes, amount: i32, chain: &BlockChain) -> Self {
         let mut inputs: Vec<TxnInput> = Vec::new();
         let mut outputs: Vec<TxnOutput> = Vec::new();
 
-        let (acc, valid_outputs) = chain.find_spendable_outputs(from, amount);
+        let wallet = Wallet::new();
+
+        let (acc, valid_outputs) = chain.find_spendable_outputs(wallet.public_key_hash, amount);
 
         if acc < amount {
             panic!("Error: Not Enough Funds");
@@ -51,22 +59,17 @@ impl Transaction {
                 let input = TxnInput {
                     id: txn_id.clone(),
                     out: out.clone(),
-                    sig: from.clone(),
+                    signature: vec![],
+                    public_key: wallet.public_key.serialize().to_vec(),
                 };
                 inputs.push(input);
             }
         }
 
-        outputs.push(TxnOutput {
-            value: amount,
-            pub_key: to.clone(),
-        });
+        outputs.push(TxnOutput::new(amount, &to));
 
         if acc > amount {
-            outputs.push(TxnOutput {
-                value: acc - amount,
-                pub_key: from.clone(),
-            });
+            outputs.push(TxnOutput::new(acc - amount, &from));
         }
 
         let mut txn = Transaction {
@@ -74,23 +77,23 @@ impl Transaction {
             inputs,
             outputs,
         };
-        txn.setid();
+        txn.id = txn.hash();
+        chain.sign_transaction(&mut txn, wallet.private_key);
+
         txn
     }
 
     /// Create a coinbase transaction, i.e. the first transaction for the
     /// genesis block
-    pub fn create_coinbase_txn(to: &'static str, data: &'static str) -> Self {
+    pub fn create_coinbase_txn(to: Bytes, data: Bytes) -> Self {
         let txin = TxnInput {
             id: vec![],
             out: -1,
-            sig: data,
+            signature: vec![],
+            public_key: data,
         };
 
-        let txout = TxnOutput {
-            value: 100,
-            pub_key: to,
-        };
+        let txout = TxnOutput::new(100, &to);
 
         let mut transaction = Transaction {
             id: vec![],
@@ -114,6 +117,79 @@ impl Transaction {
     pub fn is_coinbase(&self) -> bool {
         self.inputs.len() == 1 && self.inputs[0].id.len() == 0 && self.inputs[0].out == -1
     }
+
+    pub fn sign(
+        &mut self,
+        private_key: secp256k1::SecretKey,
+        prev_txns: HashMap<String, &Transaction>,
+    ) -> Result<(), String> {
+        if self.is_coinbase() {
+            return Ok(());
+        }
+
+        for input in &self.inputs {
+            if !prev_txns.contains_key(&hex::encode(&input.id)) {
+                return Err("The transaction is not present in the history".to_string());
+            }
+        }
+
+        let mut txn_copy = self.clone();
+        let secp = Secp256k1::new();
+
+        for (input_idx, input_data) in self.inputs.iter_mut().enumerate() {
+            let prev_txn = &prev_txns[&hex::encode(&input_data.id)];
+            txn_copy.inputs[input_idx].signature = vec![];
+            txn_copy.inputs[input_idx].public_key = prev_txn.outputs[input_data.out as usize]
+                .public_key_hash
+                .clone();
+            txn_copy.id = txn_copy.hash();
+            txn_copy.inputs[input_idx].public_key = vec![];
+
+            let message = Message::from_slice(&txn_copy.id).unwrap();
+            let signature = secp.sign(&message, &private_key);
+
+            // It was self.inputs[input_idx]
+            input_data.signature = signature.serialize_compact().to_vec();
+        }
+
+        Ok(())
+    }
+
+    pub fn verify(&mut self, prev_txns: HashMap<String, &Transaction>) -> Result<bool, &str> {
+        if self.is_coinbase() {
+            return Ok(true);
+        }
+
+        for input in &self.inputs {
+            if !prev_txns.contains_key(&hex::encode(&input.id)) {
+                return Err("The transaction is not present in the history");
+            }
+        }
+
+        let mut txn_copy = self.clone();
+        let secp = Secp256k1::new();
+
+        for (input_idx, input_data) in self.inputs.iter().enumerate() {
+            let prev_txn = &prev_txns[&hex::encode(&input_data.id)];
+            txn_copy.inputs[input_idx].signature = vec![];
+            txn_copy.inputs[input_idx].public_key = prev_txn.outputs[input_data.out as usize]
+                .public_key_hash
+                .clone();
+            txn_copy.id = txn_copy.hash();
+            txn_copy.inputs[input_idx].public_key = vec![];
+
+            let message = Message::from_slice(&txn_copy.id).unwrap();
+            let signature = secp256k1::Signature::from_compact(&input_data.signature).unwrap();
+            let public_key = secp256k1::PublicKey::from_slice(&input_data.public_key).unwrap();
+
+            match secp.verify(&message, &signature, &public_key) {
+                Ok(_) => (),
+                Err(_) => return Err("secp256k1 error"),
+            }
+        }
+
+        Ok(true)
+    }
 }
 
 impl std::fmt::Display for TxnInput {
@@ -123,11 +199,13 @@ impl std::fmt::Display for TxnInput {
             "
                 ID: {},
                 Out: {},
-                Sig: {},
+                Signature: {},
+                Public Key: {}
             ",
             hex::encode(&self.id),
             self.out,
-            self.sig
+            hex::encode(&self.signature),
+            hex::encode(&self.public_key)
         )
     }
 }
@@ -138,9 +216,10 @@ impl std::fmt::Display for TxnOutput {
             f,
             "
                 Val: {},
-                Pub Key: {}
+                Public Key Hash: {}
             ",
-            self.value, self.pub_key
+            self.value,
+            hex::encode(&self.public_key_hash)
         )
     }
 }

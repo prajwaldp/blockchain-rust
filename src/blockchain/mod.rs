@@ -7,6 +7,9 @@ pub mod wallet;
 
 use block::Block;
 use transaction::Transaction;
+use txn::TxnOutput;
+
+type Bytes = Vec<u8>;
 
 #[derive(Clone, Debug, Default)]
 pub struct BlockChain {
@@ -16,7 +19,10 @@ pub struct BlockChain {
 
 impl BlockChain {
     pub fn new(address: &'static str) -> Self {
-        let coinbase_txn = Transaction::create_coinbase_txn(address, "First Transaction");
+        let address = address.as_bytes().to_vec();
+        let data = String::from("First Transaction").as_bytes().to_vec();
+
+        let coinbase_txn = Transaction::create_coinbase_txn(address, data);
         let genesis_block = Block::create_genesis_block(coinbase_txn);
 
         BlockChain {
@@ -38,7 +44,7 @@ impl BlockChain {
         self.last_hash = last_hash;
     }
 
-    pub fn find_unspent_transactions(&self, address: &'static str) -> Vec<&Transaction> {
+    pub fn find_unspent_transactions(&self, public_key_hash: &Bytes) -> Vec<&Transaction> {
         let mut unspent_transactions: Vec<&Transaction> = Vec::new();
         let mut spent_txos = HashMap::<String, Vec<i32>>::new();
 
@@ -61,14 +67,14 @@ impl BlockChain {
                         continue;
                     }
 
-                    if out.can_be_unlocked(address) {
+                    if out.is_locked_with_key(&public_key_hash) {
                         unspent_transactions.push(&txn);
                     }
                 }
 
                 if !txn.is_coinbase() {
                     for input in &txn.inputs {
-                        if input.can_unlock(address) {
+                        if input.is_uses_key(&public_key_hash) {
                             let txn_id = hex::encode(&input.id);
                             spent_txos.entry(txn_id).or_insert(vec![]).push(input.out);
                         }
@@ -80,28 +86,28 @@ impl BlockChain {
         unspent_transactions
     }
 
-    // pub fn find_unspent_txn_outputs(&self, address: &'static str) -> Vec<&TxnOutput> {
-    //     let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
-    //     let unspent_txns = self.find_unspent_transactions(address);
+    pub fn find_unspent_txn_outputs(&self, public_key_hash: Bytes) -> Vec<&TxnOutput> {
+        let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
+        let unspent_txns = self.find_unspent_transactions(&public_key_hash);
 
-    //     for txn in &unspent_txns {
-    //         for output in &txn.outputs {
-    //             if output.can_be_unlocked(address) {
-    //                 unspent_txn_outputs.push(output);
-    //             }
-    //         }
-    //     }
+        for txn in &unspent_txns {
+            for output in &txn.outputs {
+                if output.is_locked_with_key(&public_key_hash) {
+                    unspent_txn_outputs.push(output);
+                }
+            }
+        }
 
-    //     unspent_txn_outputs
-    // }
+        unspent_txn_outputs
+    }
 
     pub fn find_spendable_outputs(
         &self,
-        address: &'static str,
+        public_key_hash: Bytes,
         amount: i32,
     ) -> (i32, HashMap<String, Vec<i32>>) {
         let mut unspent_outputs = HashMap::<String, Vec<i32>>::new();
-        let unspent_txns = self.find_unspent_transactions(address);
+        let unspent_txns = self.find_unspent_transactions(&public_key_hash);
         let mut accumulated: i32 = 0;
 
         let mut txn_id;
@@ -109,7 +115,7 @@ impl BlockChain {
             txn_id = hex::encode(&txn.id).to_owned();
 
             for (output_idx, output) in txn.outputs.iter().enumerate() {
-                if output.can_be_unlocked(address) && accumulated < amount {
+                if output.is_locked_with_key(&public_key_hash) && accumulated < amount {
                     accumulated += output.value;
                     unspent_outputs
                         .entry(txn_id.clone())
@@ -124,6 +130,44 @@ impl BlockChain {
         }
 
         (accumulated, unspent_outputs)
+    }
+
+    pub fn find_transaction(&self, id: &Bytes) -> Result<&Transaction, &str> {
+        for block in self.blocks.iter().rev() {
+            for txn in block.transactions.iter() {
+                if txn.id == *id {
+                    return Ok(txn);
+                }
+            }
+
+            if block.prev_hash.len() == 0 {
+                break;
+            }
+        }
+
+        Err("Transaction not found")
+    }
+
+    pub fn sign_transaction(&self, txn: &mut Transaction, private_key: secp256k1::SecretKey) {
+        let mut prev_txns = HashMap::<String, &Transaction>::new();
+
+        for txn_input in txn.inputs.iter() {
+            let prev_txn = self.find_transaction(&txn_input.id).unwrap();
+            prev_txns.insert(hex::encode(&prev_txn.id), prev_txn);
+        }
+
+        txn.sign(private_key, prev_txns).expect("");
+    }
+
+    pub fn verify_transaction(&self, txn: &mut Transaction) -> bool {
+        let mut prev_txns = HashMap::<String, &Transaction>::new();
+
+        for txn_input in txn.inputs.iter() {
+            let prev_txn = self.find_transaction(&txn_input.id).unwrap();
+            prev_txns.insert(hex::encode(&prev_txn.id), prev_txn);
+        }
+
+        txn.verify(prev_txns).unwrap()
     }
 }
 

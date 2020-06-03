@@ -82,6 +82,9 @@ pub mod node {
             to: &'static str,
             amount: i32,
         ) {
+            let from = from.as_bytes().to_owned();
+            let to = to.as_bytes().to_owned();
+
             let txn = Transaction::new(from, to, amount, &self.blockchain);
             let block = Block::create(vec![txn], self.blockchain.last_hash.clone());
             self.blockchain.add_block(block);
