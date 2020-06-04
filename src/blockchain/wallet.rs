@@ -1,8 +1,14 @@
-// Eliptical Curve Digital Signing Algorithm
+//! Uses the Eliptical Curve Digital Signing Algorithm to create a wallet with a
+//! public and private key
+
 use rand::rngs::OsRng;
 use ripemd160::{Digest, Ripemd160};
 use secp256k1::Secp256k1;
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
 
 type Bytes = Vec<u8>;
 
@@ -18,6 +24,13 @@ pub struct Wallet {
     pub public_key_hash: Bytes,
     pub checksum: Bytes,
     pub full_hash: Bytes,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WalletData {
+    pub private_key: Bytes,
+    pub public_key: Bytes,
+    pub public_key_hash: Bytes,
 }
 
 impl Wallet {
@@ -40,6 +53,25 @@ impl Wallet {
 
         wallet.set_public_key_hash();
         wallet.set_address();
+
+        // Save a copy of the data to disk
+        let wallet_data = WalletData {
+            public_key: wallet.public_key.serialize().to_vec(),
+            private_key: wallet.private_key[..].to_vec(),
+            public_key_hash: wallet.public_key_hash.clone(),
+        };
+
+        let json = serde_json::to_string(&wallet_data).unwrap();
+        let pathname = format!("./tmp/{}.json", hex::encode(&wallet.address));
+        let path = Path::new(&pathname);
+        let display = path.display();
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't create {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        file.write(json.as_bytes()).expect("Couldn't write file");
+
         wallet
     }
 
@@ -102,6 +134,32 @@ impl Wallet {
         let target_checksum = Self::generate_checksum(&new_hash);
 
         actual_checksum == target_checksum
+    }
+
+    // TODO: Reomve duplication from Wallet::is_address_valid() using this function
+    pub fn get_public_key_hash_from_address(address: &Bytes) -> Bytes {
+        let hash = bs58::decode(address).into_vec().unwrap();
+
+        // Destructuring the components of the decoded address
+        let _version = hash[0];
+        let public_key_hash = &hash[1..(hash.len() - CHECKSUM_LENGTH)];
+        let _actual_checksum = &hash[(hash.len() - CHECKSUM_LENGTH)..];
+
+        public_key_hash.to_vec()
+    }
+
+    pub fn from_address(address: &Bytes) -> WalletData {
+        let pathname = format!("./tmp/{}.json", hex::encode(address));
+        let path = Path::new(&pathname);
+        let mut file = File::open(path).expect("Couldn't open file");
+
+        let mut s = String::new();
+        file.read_to_string(&mut s).expect("Couldn't read file");
+
+        println!("Read: {}", s);
+
+        let w: WalletData = serde_json::from_str(&s).expect("Couldn't parse string");
+        w
     }
 }
 

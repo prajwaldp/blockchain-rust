@@ -6,15 +6,19 @@ pub mod node {
 
     use actix::prelude::*;
 
+    type Bytes = Vec<u8>;
+
     #[derive(Message)]
     #[rtype(result = "Result<(), String>")]
-    pub struct CreateBlockchain;
+    pub struct CreateBlockchain {
+        pub address: Bytes,
+    }
 
     #[derive(Message)]
     #[rtype(result = "Result<(), String>")]
     pub struct AddTransactionAndMine {
-        pub from: &'static str,
-        pub to: &'static str,
+        pub from: Bytes,
+        pub to: Bytes,
         pub amt: i32,
     }
 
@@ -72,20 +76,15 @@ pub mod node {
             node
         }
 
-        pub fn create_blockchain(&mut self) {
-            self.blockchain = BlockChain::new(&self.address);
+        pub fn create_blockchain(&mut self, address: &Bytes) {
+            self.blockchain = BlockChain::new(address);
         }
 
-        pub fn make_transaction_and_mine(
-            &mut self,
-            from: &'static str,
-            to: &'static str,
-            amount: i32,
-        ) {
-            let from = from.as_bytes().to_owned();
-            let to = to.as_bytes().to_owned();
+        pub fn make_transaction_and_mine(&mut self, from: Bytes, to: Bytes, amount: i32) {
+            // let from = from.as_bytes().to_owned();
+            // let to = to.as_bytes().to_owned();
 
-            let txn = Transaction::new(from, to, amount, &self.blockchain);
+            let txn = Transaction::new(&from, &to, amount, &self.blockchain);
             let block = Block::create(vec![txn], self.blockchain.last_hash.clone());
             self.blockchain.add_block(block);
         }
@@ -98,18 +97,18 @@ pub mod node {
     impl Handler<CreateBlockchain> for Node {
         type Result = Result<(), String>;
 
-        fn handle(&mut self, _msg: CreateBlockchain, _ctx: &mut Context<Self>) -> Self::Result {
-            self.create_blockchain();
+        fn handle(&mut self, msg: CreateBlockchain, _ctx: &mut Context<Self>) -> Self::Result {
+            self.create_blockchain(&msg.address);
             println!("{}", self.blockchain);
             Ok(())
         }
     }
 
-    impl Handler<AddTransactionAndMine> for Node {
+    impl<'a> Handler<AddTransactionAndMine> for Node {
         type Result = Result<(), String>;
 
         fn handle(&mut self, msg: AddTransactionAndMine, _ctx: &mut Context<Self>) -> Self::Result {
-            self.make_transaction_and_mine(msg.from, msg.to, msg.amt);
+            self.make_transaction_and_mine(msg.from.clone(), msg.to.clone(), msg.amt);
             println!("Mined transaction");
             println!("{}", self.blockchain);
             Ok(())

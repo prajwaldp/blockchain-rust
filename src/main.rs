@@ -3,12 +3,20 @@ mod network;
 mod util;
 
 use actix::prelude::*;
+use blockchain::wallet::Wallet;
 use network::node::*;
 
 #[actix_rt::main]
 async fn main() {
     let addr = Node::default("John").start();
-    let result = addr.send(CreateBlockchain).await;
+    let miner = Wallet::new();
+    let person2 = Wallet::new();
+
+    let result = addr
+        .send(CreateBlockchain {
+            address: miner.address.clone(),
+        })
+        .await;
 
     match result {
         Ok(_) => (),
@@ -17,8 +25,8 @@ async fn main() {
 
     let result = addr
         .send(AddTransactionAndMine {
-            from: "John",
-            to: "Jane",
+            from: miner.address.clone(),
+            to: person2.address.clone(),
             amt: 50,
         })
         .await;
@@ -34,7 +42,4 @@ async fn main() {
     node1.start();
 
     System::current().stop();
-
-    let wallet = blockchain::wallet::Wallet::new();
-    println!("{}", wallet);
 }

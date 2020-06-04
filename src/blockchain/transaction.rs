@@ -38,13 +38,16 @@ impl Hashable for Transaction {
 }
 
 impl Transaction {
-    pub fn new(from: Bytes, to: Bytes, amount: i32, chain: &BlockChain) -> Self {
+    pub fn new(from: &Bytes, to: &Bytes, amount: i32, chain: &BlockChain) -> Self {
         let mut inputs: Vec<TxnInput> = Vec::new();
         let mut outputs: Vec<TxnOutput> = Vec::new();
 
-        let wallet = Wallet::new();
+        let wallet_data = Wallet::from_address(from);
+        let public_key_hash = wallet_data.public_key_hash;
+        let public_key = wallet_data.public_key;
+        let private_key = secp256k1::key::SecretKey::from_slice(&wallet_data.private_key).unwrap();
 
-        let (acc, valid_outputs) = chain.find_spendable_outputs(wallet.public_key_hash, amount);
+        let (acc, valid_outputs) = chain.find_spendable_outputs(&public_key_hash, amount);
 
         if acc < amount {
             panic!("Error: Not Enough Funds");
@@ -60,7 +63,7 @@ impl Transaction {
                     id: txn_id.clone(),
                     out: out.clone(),
                     signature: vec![],
-                    public_key: wallet.public_key.serialize().to_vec(),
+                    public_key: public_key.clone(),
                 };
                 inputs.push(input);
             }
@@ -69,7 +72,7 @@ impl Transaction {
         outputs.push(TxnOutput::new(amount, &to));
 
         if acc > amount {
-            outputs.push(TxnOutput::new(acc - amount, &from));
+            outputs.push(TxnOutput::new(acc - amount, from));
         }
 
         let mut txn = Transaction {
@@ -78,14 +81,14 @@ impl Transaction {
             outputs,
         };
         txn.id = txn.hash();
-        chain.sign_transaction(&mut txn, wallet.private_key);
+        chain.sign_transaction(&mut txn, private_key);
 
         txn
     }
 
     /// Create a coinbase transaction, i.e. the first transaction for the
     /// genesis block
-    pub fn create_coinbase_txn(to: Bytes, data: Bytes) -> Self {
+    pub fn create_coinbase_txn(to: &Bytes, data: Bytes) -> Self {
         let txin = TxnInput {
             id: vec![],
             out: -1,

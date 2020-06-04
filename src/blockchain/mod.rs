@@ -18,10 +18,8 @@ pub struct BlockChain {
 }
 
 impl BlockChain {
-    pub fn new(address: &'static str) -> Self {
-        let address = address.as_bytes().to_vec();
+    pub fn new(address: &Bytes) -> Self {
         let data = String::from("First Transaction").as_bytes().to_vec();
-
         let coinbase_txn = Transaction::create_coinbase_txn(address, data);
         let genesis_block = Block::create_genesis_block(coinbase_txn);
 
@@ -103,7 +101,7 @@ impl BlockChain {
 
     pub fn find_spendable_outputs(
         &self,
-        public_key_hash: Bytes,
+        public_key_hash: &Bytes,
         amount: i32,
     ) -> (i32, HashMap<String, Vec<i32>>) {
         let mut unspent_outputs = HashMap::<String, Vec<i32>>::new();
