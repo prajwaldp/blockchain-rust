@@ -9,12 +9,13 @@ use network::node::*;
 #[actix_rt::main]
 async fn main() {
     let addr = Node::default("John").start();
-    let miner = Wallet::new();
-    let person2 = Wallet::new();
+
+    let wallet1 = Wallet::new();
+    let wallet2 = Wallet::new();
 
     let result = addr
         .send(CreateBlockchain {
-            address: miner.address.clone(),
+            address: wallet1.address.clone(),
         })
         .await;
 
@@ -25,21 +26,20 @@ async fn main() {
 
     let result = addr
         .send(AddTransactionAndMine {
-            from: miner.address.clone(),
-            to: person2.address.clone(),
-            amt: 50,
+            from: wallet1.address.clone(),
+            to: wallet2.address.clone(),
+            amt: 10,
         })
         .await;
 
     match result {
         Ok(_) => (),
-        Err(err) => println!("[Error] CreateBlockChain responsed to with {}", err),
+        Err(err) => println!("[Error] CreateBlockChain responded to with {}", err),
     }
 
     // Let's try downloading the blockchain from another node
-
-    let node1 = Node::new("Jane", vec![addr.recipient()]).await;
-    node1.start();
+    let new_node = Node::new("Jane", vec![addr.recipient()]).await;
+    new_node.start();
 
     System::current().stop();
 }

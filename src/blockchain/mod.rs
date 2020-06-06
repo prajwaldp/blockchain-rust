@@ -3,11 +3,12 @@ use std::collections::HashMap;
 pub mod block;
 pub mod transaction;
 pub mod txn;
-pub mod wallet;
+pub mod utxno;
+pub mod wallet; // unspent transaction outputs
 
 use block::Block;
 use transaction::Transaction;
-use txn::TxnOutput;
+// use txn::TxnOutput;
 
 type Bytes = Vec<u8>;
 
@@ -19,8 +20,7 @@ pub struct BlockChain {
 
 impl BlockChain {
     pub fn new(address: &Bytes) -> Self {
-        let data = String::from("First Transaction").as_bytes().to_vec();
-        let coinbase_txn = Transaction::create_coinbase_txn(address, data);
+        let coinbase_txn = Transaction::create_coinbase_txn(address);
         let genesis_block = Block::create_genesis_block(coinbase_txn);
 
         BlockChain {
@@ -84,20 +84,67 @@ impl BlockChain {
         unspent_transactions
     }
 
-    pub fn find_unspent_txn_outputs(&self, public_key_hash: Bytes) -> Vec<&TxnOutput> {
-        let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
-        let unspent_txns = self.find_unspent_transactions(&public_key_hash);
+    // pub fn find_unspent_txn_outputs(&self, public_key_hash: Bytes) -> Vec<&TxnOutput> {
+    //     let mut unspent_txn_outputs: Vec<&TxnOutput> = Vec::new();
+    //     let unspent_txns = self.find_unspent_transactions(&public_key_hash);
 
-        for txn in &unspent_txns {
-            for output in &txn.outputs {
-                if output.is_locked_with_key(&public_key_hash) {
-                    unspent_txn_outputs.push(output);
-                }
-            }
-        }
+    //     for txn in &unspent_txns {
+    //         for output in &txn.outputs {
+    //             if output.is_locked_with_key(&public_key_hash) {
+    //                 unspent_txn_outputs.push(output);
+    //             }
+    //         }
+    //     }
 
-        unspent_txn_outputs
-    }
+    //     unspent_txn_outputs
+    // }
+
+    // pub fn find_unspent_txn_outputs(&self) -> HashMap<String, Vec<&TxnOutput>> {
+    //     let mut unspent_txn_outputs = HashMap::<String, Vec<&TxnOutput>>::new();
+    //     let mut spent_txn_outputs = HashMap::<String, Vec<i32>>::new();
+
+    //     for block in self.blocks.iter().rev() {
+    //         for txn in block.transactions.iter() {
+    //             let txn_id = hex::encode(&txn.id);
+    //             let is_txn_id_in_spent_txn_outputs = spent_txn_outputs.contains_key(&txn_id);
+    //             let mut found: bool = false;
+
+    //             for (output_idx, output) in txn.outputs.iter().enumerate() {
+    //                 if is_txn_id_in_spent_txn_outputs {
+    //                     for spent_output in spent_txn_outputs[&txn_id].iter() {
+    //                         if *spent_output == output_idx as i32 {
+    //                             found = true;
+    //                             break;
+    //                         }
+    //                     }
+
+    //                     if found {
+    //                         continue;
+    //                     }
+
+    //                     let mut outputs = unspent_txn_outputs[&txn_id].clone();
+    //                     outputs.push(output);
+    //                     unspent_txn_outputs
+    //                         .entry(txn_id.clone())
+    //                         .or_insert(vec![])
+    //                         .append(&mut outputs);
+    //                 }
+
+    //                 if !txn.is_coinbase() {
+    //                     for input in txn.inputs.iter() {
+    //                         let input_txn_id = hex::encode(&input.id);
+    //                         spent_txn_outputs
+    //                             .entry(input_txn_id)
+    //                             .or_insert(vec![])
+    //                             .push(input.out);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     unspent_txn_outputs
+    // }
 
     pub fn find_spendable_outputs(
         &self,
@@ -157,16 +204,16 @@ impl BlockChain {
         txn.sign(private_key, prev_txns).expect("");
     }
 
-    pub fn verify_transaction(&self, txn: &mut Transaction) -> bool {
-        let mut prev_txns = HashMap::<String, &Transaction>::new();
+    // pub fn verify_transaction(&self, txn: &mut Transaction) -> bool {
+    //     let mut prev_txns = HashMap::<String, &Transaction>::new();
 
-        for txn_input in txn.inputs.iter() {
-            let prev_txn = self.find_transaction(&txn_input.id).unwrap();
-            prev_txns.insert(hex::encode(&prev_txn.id), prev_txn);
-        }
+    //     for txn_input in txn.inputs.iter() {
+    //         let prev_txn = self.find_transaction(&txn_input.id).unwrap();
+    //         prev_txns.insert(hex::encode(&prev_txn.id), prev_txn);
+    //     }
 
-        txn.verify(prev_txns).unwrap()
-    }
+    //     txn.verify(prev_txns).unwrap()
+    // }
 }
 
 impl std::fmt::Display for BlockChain {

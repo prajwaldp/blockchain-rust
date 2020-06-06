@@ -85,7 +85,8 @@ pub mod node {
             // let to = to.as_bytes().to_owned();
 
             let txn = Transaction::new(&from, &to, amount, &self.blockchain);
-            let block = Block::create(vec![txn], self.blockchain.last_hash.clone());
+            let coinbase_txn = Transaction::create_coinbase_txn(&from);
+            let block = Block::create(vec![txn, coinbase_txn], self.blockchain.last_hash.clone());
             self.blockchain.add_block(block);
         }
     }

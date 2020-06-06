@@ -137,16 +137,16 @@ impl Wallet {
     }
 
     // TODO: Reomve duplication from Wallet::is_address_valid() using this function
-    pub fn get_public_key_hash_from_address(address: &Bytes) -> Bytes {
-        let hash = bs58::decode(address).into_vec().unwrap();
+    // pub fn get_public_key_hash_from_address(address: &Bytes) -> Bytes {
+    //     let hash = bs58::decode(address).into_vec().unwrap();
 
-        // Destructuring the components of the decoded address
-        let _version = hash[0];
-        let public_key_hash = &hash[1..(hash.len() - CHECKSUM_LENGTH)];
-        let _actual_checksum = &hash[(hash.len() - CHECKSUM_LENGTH)..];
+    //     // Destructuring the components of the decoded address
+    //     let _version = hash[0];
+    //     let public_key_hash = &hash[1..(hash.len() - CHECKSUM_LENGTH)];
+    //     let _actual_checksum = &hash[(hash.len() - CHECKSUM_LENGTH)..];
 
-        public_key_hash.to_vec()
-    }
+    //     public_key_hash.to_vec()
+    // }
 
     pub fn from_address(address: &Bytes) -> WalletData {
         let pathname = format!("./tmp/{}.json", hex::encode(address));
