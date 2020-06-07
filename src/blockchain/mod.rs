@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 pub mod block;
+pub mod merkle;
 pub mod transaction;
 pub mod txn;
-pub mod utxno;
 pub mod wallet; // unspent transaction outputs
 
 use block::Block;

@@ -86,7 +86,9 @@ pub mod node {
 
             let txn = Transaction::new(&from, &to, amount, &self.blockchain);
             let coinbase_txn = Transaction::create_coinbase_txn(&from);
+            println!("called 1");
             let block = Block::create(vec![txn, coinbase_txn], self.blockchain.last_hash.clone());
+            println!("called 2");
             self.blockchain.add_block(block);
         }
     }

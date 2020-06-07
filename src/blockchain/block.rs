@@ -1,8 +1,11 @@
 use crate::util::traits::Hashable;
 
 use super::transaction::Transaction;
+use crate::blockchain;
 
 use std::convert::TryInto;
+
+type Bytes = Vec<u8>;
 
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -80,8 +83,16 @@ impl Hashable for Block {
     fn encode(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
 
+        // TODO: Change to functional style (using map and collect into Vec)
+        let mut txn_hashes = Vec::<Bytes>::new();
+        for txn in self.transactions.iter() {
+            txn_hashes.push(txn.encode());
+        }
+
+        let tree = blockchain::merkle::MerkleTree::new(txn_hashes);
+
         bytes.extend(&self.prev_hash);
-        bytes.extend(self.transactions.iter().flat_map(|txn| txn.encode()));
+        bytes.extend(tree.root.data);
         bytes.extend(&self.nonce.to_le_bytes());
         bytes.extend(&self.difficulty.to_le_bytes());
 
