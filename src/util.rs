@@ -7,3 +7,12 @@ pub mod traits {
         }
     }
 }
+
+pub mod constants {
+    pub const CHECKSUM_LENGTH: usize = 4;
+    pub const VERSION: u8 = 0x00;
+}
+
+pub mod types {
+    pub type Bytes = Vec<u8>;
+}

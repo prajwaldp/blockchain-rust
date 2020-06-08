@@ -1,5 +1,5 @@
-//! Uses the Eliptical Curve Digital Signing Algorithm to create a wallet with a
-//! public and private key
+use crate::util::constants::*;
+use crate::util::types::*;
 
 use rand::rngs::OsRng;
 use ripemd160::{Digest, Ripemd160};
@@ -9,12 +9,6 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-
-type Bytes = Vec<u8>;
-
-// TODO: Move constants to a module
-const CHECKSUM_LENGTH: usize = 4;
-const VERSION: u8 = 0x00;
 
 #[derive(Debug)]
 pub struct Wallet {
@@ -26,6 +20,7 @@ pub struct Wallet {
     pub full_hash: Bytes,
 }
 
+// For serializing and deserializing wallets to and from files
 #[derive(Serialize, Deserialize)]
 pub struct WalletData {
     pub private_key: Bytes,
@@ -35,6 +30,8 @@ pub struct WalletData {
 
 impl Wallet {
     pub fn new() -> Self {
+        // Use the Eliptical Curve Digital Signing Algorithm to create a wallet with a
+        // public and private key
         let secp = Secp256k1::new();
         let mut rng = OsRng::new().expect("OsRng");
 
@@ -76,25 +73,14 @@ impl Wallet {
     }
 
     fn set_public_key_hash(&mut self) {
-        // TODO: Use Wallet::generate_sha256_ripemd160_hash()
-        let public_key_hash =
-            crypto_hash::digest(crypto_hash::Algorithm::SHA256, &self.public_key.serialize());
-
-        let mut hasher = Ripemd160::new();
-        hasher.input(public_key_hash);
-        let hashed_result = hasher.result();
-        self.public_key_hash = hashed_result.to_vec();
+        self.public_key_hash =
+            Wallet::generate_sha256_ripemd160_hash(&self.public_key.serialize().to_vec());
     }
 
     fn set_address(&mut self) {
-        // The first hex digit is the version
-        let mut hash: Bytes = vec![VERSION];
-
-        // The next 20 digits is the RIPEMD160 hash of the public key
-        hash.extend(self.public_key_hash.clone());
-
-        // The next 32 digits is the SHA256 hash (twice) of the current hash
-        let checksum = Self::generate_checksum(&hash);
+        let mut hash: Bytes = vec![VERSION]; // The first hex digit is the version
+        hash.extend(self.public_key_hash.clone()); // The next 20 digits is the RIPEMD160 hash of the public key
+        let checksum = Self::generate_checksum(&hash); // The next 32 digits is the SHA256 hash (twice) of the current hash
         hash.extend(&checksum);
 
         self.full_hash = hash.to_owned();
@@ -136,18 +122,6 @@ impl Wallet {
         actual_checksum == target_checksum
     }
 
-    // TODO: Reomve duplication from Wallet::is_address_valid() using this function
-    // pub fn get_public_key_hash_from_address(address: &Bytes) -> Bytes {
-    //     let hash = bs58::decode(address).into_vec().unwrap();
-
-    //     // Destructuring the components of the decoded address
-    //     let _version = hash[0];
-    //     let public_key_hash = &hash[1..(hash.len() - CHECKSUM_LENGTH)];
-    //     let _actual_checksum = &hash[(hash.len() - CHECKSUM_LENGTH)..];
-
-    //     public_key_hash.to_vec()
-    // }
-
     pub fn from_address(address: &Bytes) -> WalletData {
         let pathname = format!("./tmp/{}.json", hex::encode(address));
         let path = Path::new(&pathname);
@@ -155,8 +129,6 @@ impl Wallet {
 
         let mut s = String::new();
         file.read_to_string(&mut s).expect("Couldn't read file");
-
-        println!("Read: {}", s);
 
         let w: WalletData = serde_json::from_str(&s).expect("Couldn't parse string");
         w
