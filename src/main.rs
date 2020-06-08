@@ -54,9 +54,5 @@ async fn main() {
         .await;
     handle_result(result, "PrintInfo");
 
-    // Let's try downloading the blockchain from another node
-    // let new_node = Node::new("Jane", vec![addr.recipient()]).await;
-    // new_node.start();
-
     System::current().stop();
 }

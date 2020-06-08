@@ -8,6 +8,7 @@ pub mod node {
 
     type Bytes = Vec<u8>;
 
+    // Refactor: semantically order message types in enums
     #[derive(Debug)]
     pub enum Payload {
         CreateBlockchain {
@@ -33,16 +34,11 @@ pub mod node {
 
     pub enum GenericResponse {
         OK,
-        BlockChain(BlockChain),
     }
 
     #[derive(Message)]
     #[rtype(result = "Result<GenericResponse, String>")]
     pub struct GenericMessage(pub Payload);
-
-    // #[derive(Message)]
-    // #[rtype(result = "Result<BlockChain, String>")]
-    // pub struct DownloadBlockChainRequest;
 
     pub struct Node {
         pub address: &'static str,
@@ -59,54 +55,14 @@ pub mod node {
             }
         }
 
-        // pub async fn new(
-        //     address: &'static str,
-        //     known_nodes: Vec<Recipient<GenericMessage>>,
-        // ) -> Self {
-        //     let mut node = Node {
-        //         address,
-        //         known_nodes,
-        //         blockchain: BlockChain::new_placeholder(),
-        //     };
-
-        //     for known_node in &node.known_nodes {
-        //         let actix_result = known_node.send(DownloadBlockChainRequest).await;
-
-        //         match actix_result {
-        //             Ok(result) => match result {
-        //                 Ok(blockchain) => {
-        //                     node.blockchain = blockchain;
-        //                     println!("Downloaded blockchain successfully");
-        //                     break;
-        //                 }
-        //                 Err(err) => println!(
-        //                     "[Error] DownloadBlockChainRequest responsed to with {}",
-        //                     err
-        //                 ),
-        //             },
-
-        //             Err(err) => {
-        //                 println!("[Error] Actix could not send message, failed with {}", err)
-        //             }
-        //         }
-        //     }
-
-        //     node
-        // }
-
         pub fn create_blockchain(&mut self, address: &Bytes) {
             self.blockchain = BlockChain::new(address);
         }
 
         pub fn make_transaction_and_mine(&mut self, from: Bytes, to: Bytes, amount: i32) {
-            // let from = from.as_bytes().to_owned();
-            // let to = to.as_bytes().to_owned();
-
             let txn = Transaction::new(&from, &to, amount, &self.blockchain);
             let coinbase_txn = Transaction::create_coinbase_txn(&from);
-            println!("called 1");
             let block = Block::create(vec![txn, coinbase_txn], self.blockchain.last_hash.clone());
-            println!("called 2");
             self.blockchain.add_block(block);
         }
     }
