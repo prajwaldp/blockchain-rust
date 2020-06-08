@@ -6,40 +6,57 @@ use actix::prelude::*;
 use blockchain::wallet::Wallet;
 use network::node::*;
 
-#[actix_rt::main]
-async fn main() {
-    let addr = Node::default("John").start();
-
-    let wallet1 = Wallet::new();
-    let wallet2 = Wallet::new();
-
-    let result = addr
-        .send(CreateBlockchain {
-            address: wallet1.address.clone(),
-        })
-        .await;
-
+fn handle_result<T, E: std::fmt::Display>(result: Result<T, E>, desc: &'static str) {
     match result {
         Ok(_) => (),
-        Err(err) => println!("[Error] CreateBlockChain responsed to with {}", err),
+        Err(err) => println!("[Error] {} responsed to with {}", desc, err),
     }
+}
 
-    let result = addr
-        .send(AddTransactionAndMine {
+#[actix_rt::main]
+async fn main() {
+    let addr1 = Node::default("Node1").start();
+    let wallet1 = Wallet::new();
+
+    let result = addr1
+        .send(GenericMessage(Payload::CreateBlockchain {
+            address: wallet1.address.clone(),
+        }))
+        .await;
+
+    handle_result(result, "CreateBlockchain");
+
+    let wallet2 = Wallet::new();
+    let result = addr1
+        .send(GenericMessage(Payload::AddTransactionAndMine {
             from: wallet1.address.clone(),
             to: wallet2.address.clone(),
             amt: 10,
-        })
+        }))
         .await;
 
-    match result {
-        Ok(_) => (),
-        Err(err) => println!("[Error] CreateBlockChain responded to with {}", err),
-    }
+    handle_result(result, "AddTransactionAndMine");
+
+    let addr2 = Node::default("Node2").start();
+    let result = addr2
+        .send(GenericMessage(Payload::UpdateRoutingInfo {
+            addresses: vec![addr1.recipient().clone()],
+        }))
+        .await;
+
+    handle_result(result, "UpdateRoutingInfo");
+
+    let result = addr2.send(GenericMessage(Payload::PrintInfo)).await;
+    handle_result(result, "PrintInfo");
+
+    let result = addr2
+        .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
+        .await;
+    handle_result(result, "PrintInfo");
 
     // Let's try downloading the blockchain from another node
-    let new_node = Node::new("Jane", vec![addr.recipient()]).await;
-    new_node.start();
+    // let new_node = Node::new("Jane", vec![addr.recipient()]).await;
+    // new_node.start();
 
     System::current().stop();
 }
