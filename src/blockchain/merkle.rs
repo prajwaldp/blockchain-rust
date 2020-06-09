@@ -1,4 +1,4 @@
-type Bytes = Vec<u8>;
+use crate::util::types::Bytes;
 
 #[derive(Clone)]
 pub struct MerkleNode {

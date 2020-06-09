@@ -1,11 +1,10 @@
-use crate::util::traits::Hashable;
-
-use super::transaction::Transaction;
 use crate::blockchain;
+use crate::blockchain::transaction::Transaction;
+use crate::util::constants::DIFFICULTY;
+use crate::util::traits::Hashable;
+use crate::util::types::Bytes;
 
 use std::convert::TryInto;
-
-type Bytes = Vec<u8>;
 
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -24,7 +23,7 @@ impl Block {
             transactions,
             prev_hash,
             nonce: 0,
-            difficulty: 0x0000ffffffffffffffffffffffffffff,
+            difficulty: DIFFICULTY,
         }
     }
 
