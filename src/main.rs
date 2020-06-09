@@ -3,21 +3,30 @@ mod network;
 mod util;
 
 use actix::prelude::*;
+use log::*;
+use simplelog::*;
+use std::fs::File;
+
 use blockchain::wallet::Wallet;
 use network::node::*;
-
-fn handle_result<T, E: std::fmt::Display>(result: Result<T, E>, desc: &'static str) {
-    match result {
-        Ok(_) => (),
-        Err(err) => println!("[Error] {} responsed to with {}", desc, err),
-    }
-}
+use util::helper_functions::handle_result;
 
 const N_NODES: u32 = 10;
 const N_WALLETS: u32 = 10;
 
 #[actix_rt::main]
 async fn main() {
+    // Initialize the logger
+    CombinedLogger::init(vec![
+        TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed),
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            File::create("log/application.log").unwrap(),
+        ),
+    ])
+    .unwrap();
+
     let mut nodes: Vec<Addr<Node>> = Vec::new();
     let mut wallets: Vec<Wallet> = Vec::new();
 
@@ -38,7 +47,6 @@ async fn main() {
                 addresses: recepient_addresses.clone(),
             }))
             .await;
-
         handle_result(res, "UpdateRoutingInfo");
     }
 
@@ -52,7 +60,6 @@ async fn main() {
             address: wallets[0].address.clone(),
         }))
         .await;
-
     handle_result(result, "CreateBlockchain");
 
     let result = nodes[0]
@@ -62,7 +69,6 @@ async fn main() {
             amt: 10,
         }))
         .await;
-
     handle_result(result, "AddTransactionAndMine");
 
     let result = nodes[1]
@@ -70,7 +76,6 @@ async fn main() {
             addresses: vec![nodes[0].clone().recipient().clone()],
         }))
         .await;
-
     handle_result(result, "UpdateRoutingInfo");
 
     let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;

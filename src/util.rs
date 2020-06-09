@@ -16,3 +16,14 @@ pub mod constants {
 pub mod types {
     pub type Bytes = Vec<u8>;
 }
+
+pub mod helper_functions {
+    use log::warn;
+
+    pub fn handle_result<T, E: std::fmt::Display>(result: Result<T, E>, desc: &'static str) {
+        match result {
+            Ok(_) => (),
+            Err(err) => warn!("[Error] {} responsed to with {}", desc, err),
+        }
+    }
+}

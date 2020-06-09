@@ -5,6 +5,7 @@ pub mod node {
     use crate::blockchain::BlockChain;
 
     use actix::prelude::*;
+    use log::info;
 
     type Bytes = Vec<u8>;
 
@@ -75,17 +76,14 @@ pub mod node {
         type Result = Result<GenericResponse, String>;
 
         fn handle(&mut self, msg: GenericMessage, ctx: &mut Context<Self>) -> Self::Result {
-            println!("[{}]: Received {:?}", self.address, msg.0);
+            info!("[{}]: Received {:?}", self.address, msg.0);
             match msg.0 {
                 Payload::CreateBlockchain { address } => {
                     self.create_blockchain(&address);
-                    println!("{}", self.blockchain);
                 }
 
                 Payload::AddTransactionAndMine { from, to, amt } => {
                     self.make_transaction_and_mine(from.clone(), to.clone(), amt);
-                    println!("Mined transaction");
-                    println!("{}", self.blockchain);
                 }
 
                 Payload::UpdateRoutingInfo { addresses } => {
@@ -96,7 +94,7 @@ pub mod node {
                         .collect::<Vec<_>>();
 
                     self.known_nodes = filtered_addresses;
-                    println!(
+                    info!(
                         "[{}]: Update address list with {} nodes",
                         self.address,
                         self.known_nodes.len()
