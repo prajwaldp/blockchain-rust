@@ -41,13 +41,13 @@ pub mod node {
     pub struct GenericMessage(pub Payload);
 
     pub struct Node {
-        pub address: &'static str,
+        pub address: String,
         pub known_nodes: Vec<Recipient<GenericMessage>>,
         pub blockchain: BlockChain,
     }
 
     impl Node {
-        pub fn default(address: &'static str) -> Self {
+        pub fn default(address: String) -> Self {
             Node {
                 address,
                 known_nodes: vec![],
@@ -89,7 +89,18 @@ pub mod node {
                 }
 
                 Payload::UpdateRoutingInfo { addresses } => {
-                    self.known_nodes = addresses;
+                    // Remove the nodes own addresss if present
+                    let filtered_addresses = addresses
+                        .into_iter()
+                        .filter(|a| a != &ctx.address().recipient())
+                        .collect::<Vec<_>>();
+
+                    self.known_nodes = filtered_addresses;
+                    println!(
+                        "[{}]: Update address list with {} nodes",
+                        self.address,
+                        self.known_nodes.len()
+                    );
                 }
 
                 Payload::PrintInfo => {

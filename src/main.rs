@@ -13,43 +13,70 @@ fn handle_result<T, E: std::fmt::Display>(result: Result<T, E>, desc: &'static s
     }
 }
 
+const N_NODES: u32 = 10;
+const N_WALLETS: u32 = 10;
+
 #[actix_rt::main]
 async fn main() {
-    let addr1 = Node::default("Node1").start();
-    let wallet1 = Wallet::new();
+    let mut nodes: Vec<Addr<Node>> = Vec::new();
+    let mut wallets: Vec<Wallet> = Vec::new();
 
-    let result = addr1
+    for i in 0..N_NODES {
+        let node_name = format!("Node-{}", i);
+        let addr = Node::default(node_name).start();
+        nodes.push(addr);
+    }
+
+    let recepient_addresses = nodes
+        .iter()
+        .map(|n| n.clone().recipient())
+        .collect::<Vec<Recipient<GenericMessage>>>();
+
+    for node in nodes.iter() {
+        let res = node
+            .send(GenericMessage(Payload::UpdateRoutingInfo {
+                addresses: recepient_addresses.clone(),
+            }))
+            .await;
+
+        handle_result(res, "UpdateRoutingInfo");
+    }
+
+    for _ in 0..N_WALLETS {
+        let wallet = Wallet::new();
+        wallets.push(wallet);
+    }
+
+    let result = nodes[0]
         .send(GenericMessage(Payload::CreateBlockchain {
-            address: wallet1.address.clone(),
+            address: wallets[0].address.clone(),
         }))
         .await;
 
     handle_result(result, "CreateBlockchain");
 
-    let wallet2 = Wallet::new();
-    let result = addr1
+    let result = nodes[0]
         .send(GenericMessage(Payload::AddTransactionAndMine {
-            from: wallet1.address.clone(),
-            to: wallet2.address.clone(),
+            from: wallets[0].address.clone(),
+            to: wallets[1].address.clone(),
             amt: 10,
         }))
         .await;
 
     handle_result(result, "AddTransactionAndMine");
 
-    let addr2 = Node::default("Node2").start();
-    let result = addr2
+    let result = nodes[1]
         .send(GenericMessage(Payload::UpdateRoutingInfo {
-            addresses: vec![addr1.recipient().clone()],
+            addresses: vec![nodes[0].clone().recipient().clone()],
         }))
         .await;
 
     handle_result(result, "UpdateRoutingInfo");
 
-    let result = addr2.send(GenericMessage(Payload::PrintInfo)).await;
+    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
     handle_result(result, "PrintInfo");
 
-    let result = addr2
+    let result = nodes[1]
         .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
         .await;
     handle_result(result, "PrintInfo");
