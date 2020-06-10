@@ -16,6 +16,7 @@ type Bytes = Vec<u8>;
 pub struct BlockChain {
     pub blocks: Vec<Block>,
     pub last_hash: Vec<u8>,
+    pub length: i32,
 }
 
 impl BlockChain {
@@ -26,6 +27,7 @@ impl BlockChain {
         BlockChain {
             blocks: vec![genesis_block.clone()],
             last_hash: genesis_block.hash,
+            length: 1,
         }
     }
 
@@ -33,6 +35,7 @@ impl BlockChain {
         BlockChain {
             blocks: vec![],
             last_hash: vec![],
+            length: 0,
         }
     }
 
@@ -40,6 +43,7 @@ impl BlockChain {
         let last_hash = block.hash.clone();
         self.blocks.push(block);
         self.last_hash = last_hash;
+        self.length += 1;
     }
 
     pub fn find_unspent_transactions(&self, public_key_hash: &Bytes) -> Vec<&Transaction> {
@@ -210,8 +214,10 @@ impl std::fmt::Display for BlockChain {
             "
 Blockchain
 Last Hash: {}
+Length: {}
 Blocks: {}",
             hex::encode(&self.last_hash),
+            self.length,
             self.blocks
                 .iter()
                 .map(|b| format!("{}", b))

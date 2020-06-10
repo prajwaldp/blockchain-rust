@@ -71,19 +71,21 @@ async fn main() {
         .await;
     handle_result(result, "AddTransactionAndMine");
 
-    let result = nodes[1]
-        .send(GenericMessage(Payload::UpdateRoutingInfo {
-            addresses: vec![nodes[0].clone().recipient().clone()],
+    let result = nodes[0]
+        .send(GenericMessage(Payload::AddTransactionAndMine {
+            from: wallets[1].address.clone(),
+            to: wallets[2].address.clone(),
+            amt: 10,
         }))
         .await;
-    handle_result(result, "UpdateRoutingInfo");
-
-    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
-    handle_result(result, "PrintInfo");
+    handle_result(result, "AddTransactionAndMine");
 
     let result = nodes[1]
         .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
         .await;
+    handle_result(result, "UpdateBlockchainFromKnownNodes");
+
+    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
     handle_result(result, "PrintInfo");
 
     System::current().stop();

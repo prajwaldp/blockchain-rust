@@ -4,10 +4,13 @@ use crate::util::constants::DIFFICULTY;
 use crate::util::traits::Hashable;
 use crate::util::types::Bytes;
 
+use chrono::Utc;
 use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct Block {
+    pub index: i32,
+    pub timestamp: i64, // i32 is sufficient until Jan 19, 2038. But chrono uses i64
     pub hash: Vec<u8>,
     pub transactions: Vec<Transaction>,
     pub prev_hash: Vec<u8>,
@@ -17,8 +20,10 @@ pub struct Block {
 
 impl Block {
     /// Returns a new unmined block
-    pub fn new(transactions: Vec<Transaction>, prev_hash: Vec<u8>) -> Self {
+    pub fn new(transactions: Vec<Transaction>, index: i32, prev_hash: Vec<u8>) -> Self {
         Block {
+            index,
+            timestamp: Utc::now().timestamp(),
             hash: vec![0; 32],
             transactions,
             prev_hash,
@@ -30,15 +35,15 @@ impl Block {
     /// Returns a new mined block
     ///
     /// Equivalent to calling b = Block::new() followed by b.mine()
-    pub fn create(transactions: Vec<Transaction>, prev_hash: Vec<u8>) -> Self {
-        let mut block = Block::new(transactions, prev_hash);
+    pub fn create(transactions: Vec<Transaction>, index: i32, prev_hash: Vec<u8>) -> Self {
+        let mut block = Block::new(transactions, index, prev_hash);
         block.mine();
         block
     }
 
     /// Creates a genesis block
     pub fn create_genesis_block(coinbase: Transaction) -> Block {
-        Block::new(vec![coinbase], vec![])
+        Block::new(vec![coinbase], 0, vec![])
     }
 
     /// Sets the nonce and hash that satisfies the proof of work condition
@@ -62,11 +67,15 @@ impl std::fmt::Display for Block {
         write!(
             f,
             "
+    Index: {}
+    Timestamp: {}
     Block Hash: {}
     Prev Hash: {}
     Nonce: {}
     Transactions: {}
 ",
+            self.index,
+            self.timestamp,
             hex::encode(&self.hash),
             hex::encode(&self.prev_hash),
             self.nonce,

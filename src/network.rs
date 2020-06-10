@@ -63,7 +63,11 @@ pub mod node {
         pub fn make_transaction_and_mine(&mut self, from: Bytes, to: Bytes, amount: i32) {
             let txn = Transaction::new(&from, &to, amount, &self.blockchain);
             let coinbase_txn = Transaction::create_coinbase_txn(&from);
-            let block = Block::create(vec![txn, coinbase_txn], self.blockchain.last_hash.clone());
+            let block = Block::create(
+                vec![txn, coinbase_txn],
+                self.blockchain.length,
+                self.blockchain.last_hash.clone(),
+            );
             self.blockchain.add_block(block);
         }
     }
@@ -80,6 +84,13 @@ pub mod node {
             match msg.0 {
                 Payload::CreateBlockchain { address } => {
                     self.create_blockchain(&address);
+
+                    for addr in self.known_nodes.iter() {
+                        addr.try_send(GenericMessage(Payload::Blockchain {
+                            blockchain: self.blockchain.clone(),
+                        }))
+                        .expect(&format!("Couldn't send blockchain to {:?}", addr));
+                    }
                 }
 
                 Payload::AddTransactionAndMine { from, to, amt } => {
@@ -107,6 +118,8 @@ pub mod node {
                     for addr in self.known_nodes.iter() {
                         println!("{:?}", addr);
                     }
+
+                    println!("{}", self.blockchain);
                 }
 
                 Payload::UpdateBlockchainFromKnownNodes => {
@@ -128,7 +141,10 @@ pub mod node {
                 }
 
                 Payload::Blockchain { blockchain } => {
-                    self.blockchain = blockchain;
+                    if self.blockchain.blocks.len() < blockchain.blocks.len() {
+                        info!("[{}] Received a fresher blockchain. Updating", self.address);
+                        self.blockchain = blockchain;
+                    }
                 }
             }
             Ok(GenericResponse::OK)
