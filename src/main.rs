@@ -5,14 +5,12 @@ mod util;
 use actix::prelude::*;
 use log::*;
 use simplelog::*;
+use std::env;
 use std::fs::File;
 
 use blockchain::wallet::Wallet;
 use network::node::*;
 use util::helper_functions::handle_result;
-
-const N_NODES: u32 = 10;
-const N_WALLETS: u32 = 10;
 
 #[actix_rt::main]
 async fn main() {
@@ -27,10 +25,24 @@ async fn main() {
     ])
     .unwrap();
 
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 3 {
+        println!("\nUsage: {} number-of-nodes number-of-wallets", args[0]);
+        std::process::exit(0);
+    }
+
+    let n_nodes: u32 = args[1].parse::<u32>().expect("Couldn't parse n_nodes");
+    let n_wallets: u32 = args[2].parse::<u32>().expect("Couldn't parse n_wallets");
+
+    println!("Running the simulation with:");
+    println!("Nodes: {}", n_nodes);
+    println!("Wallets: {}\n", n_wallets);
+
     let mut nodes: Vec<Addr<Node>> = Vec::new();
     let mut wallets: Vec<Wallet> = Vec::new();
 
-    for i in 0..N_NODES {
+    for i in 0..n_nodes {
         let node_name = format!("Node-{}", i);
         let addr = Node::default(node_name).start();
         nodes.push(addr);
@@ -51,7 +63,7 @@ async fn main() {
         handle_result(res, "UpdateRoutingInfo");
     }
 
-    for _ in 0..N_WALLETS {
+    for _ in 0..n_wallets {
         let wallet = Wallet::new();
         wallets.push(wallet);
     }
