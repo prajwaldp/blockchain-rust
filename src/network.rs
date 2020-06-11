@@ -3,11 +3,11 @@ pub mod node {
     use crate::blockchain::block::Block;
     use crate::blockchain::transaction::Transaction;
     use crate::blockchain::BlockChain;
+    use crate::util::types::Bytes;
 
     use actix::prelude::*;
     use log::{info, trace, warn};
-
-    type Bytes = Vec<u8>;
+    use std::time::Instant;
 
     // Refactor: semantically order message types in enums
     #[derive(Debug)]
@@ -71,11 +71,22 @@ pub mod node {
         pub fn make_transaction_and_mine(&mut self, from: Bytes, to: Bytes, amount: i32) {
             let txn = Transaction::new(&from, &to, amount, &self.blockchain);
             let coinbase_txn = Transaction::create_coinbase_txn(&from);
+
+            info!("[{}] Mining new block", &self.address);
+            let now = Instant::now();
+
             let block = Block::create(
                 vec![txn, coinbase_txn],
                 self.blockchain.length,
                 self.blockchain.last_hash.clone(),
             );
+
+            info!(
+                "[{}] Mined successfully in {} seconds",
+                &self.address,
+                now.elapsed().as_secs()
+            );
+
             self.blockchain.add_block(block.clone());
 
             for addr in self.known_nodes.iter() {
