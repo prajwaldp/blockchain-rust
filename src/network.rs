@@ -79,9 +79,10 @@ pub mod node {
             self.blockchain.add_block(block.clone());
 
             for addr in self.known_nodes.iter() {
-                info!(
+                trace!(
                     "[{}] Sending block to {:?} in `make_transaction_and_mine`",
-                    &self.address, &addr
+                    &self.address,
+                    &addr
                 );
                 addr.try_send(GenericMessage(Payload::Block {
                     block: block.clone(),
@@ -173,21 +174,22 @@ pub mod node {
                 Payload::Block { block } => {
                     if block.index == self.blockchain.length
                         && block.timestamp >= self.blockchain.blocks.last().unwrap().timestamp
+                        && block.prev_hash == self.blockchain.last_hash
                     {
                         info!(
-                            "[{}] Received a valid block: {}, {}",
-                            &self.address, &block.index, &self.blockchain.length
+                            "[{}] Received a valid block to add to the blockchain",
+                            &self.address
                         );
+
+                        self.blockchain.add_block(block);
                     } else {
                         warn!(
-                            "[{}] Received an invalid block: {}, {}",
-                            &self.address, &block.index, &self.blockchain.length
-                        );
-                        warn!(
-                            "[{}] Invalid block details: {}, {}",
+                            "[{}] Cannot add the block {} (index: {}, timestamp: {}) to blockchain with last hash {} and length {}",
                             &self.address,
                             hex::encode(&block.hash),
-                            hex::encode(&self.blockchain.last_hash)
+                            &block.index, &block.timestamp,
+                            hex::encode(&self.blockchain.last_hash),
+                            &self.blockchain.length
                         );
                     }
                 }
