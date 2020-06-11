@@ -5,7 +5,7 @@ pub mod node {
     use crate::blockchain::BlockChain;
 
     use actix::prelude::*;
-    use log::{info, trace};
+    use log::{info, trace, warn};
 
     type Bytes = Vec<u8>;
 
@@ -79,6 +79,10 @@ pub mod node {
             self.blockchain.add_block(block.clone());
 
             for addr in self.known_nodes.iter() {
+                info!(
+                    "[{}] Sending block to {:?} in `make_transaction_and_mine`",
+                    &self.address, &addr
+                );
                 addr.try_send(GenericMessage(Payload::Block {
                     block: block.clone(),
                 }))
@@ -95,7 +99,8 @@ pub mod node {
         type Result = Result<GenericResponse, String>;
 
         fn handle(&mut self, msg: GenericMessage, ctx: &mut Context<Self>) -> Self::Result {
-            trace!("[{}]: Received {:?}", self.address, msg.0);
+            trace!("[{}] Received {:?}", self.address, msg.0);
+
             match msg.0 {
                 Payload::CreateBlockchain { address } => {
                     self.create_blockchain(&address);
@@ -117,7 +122,7 @@ pub mod node {
 
                     self.known_nodes = filtered_addresses;
                     info!(
-                        "[{}]: Update address list with {} nodes",
+                        "[{}] Update address list with {} nodes",
                         self.address,
                         self.known_nodes.len()
                     );
@@ -135,11 +140,6 @@ pub mod node {
 
                 Payload::PrintInfo => {
                     println!("{:?}", self);
-
-                    for addr in self.known_nodes.iter() {
-                        println!("{:?}", addr);
-                    }
-
                     println!("{}", self.blockchain);
                 }
 
@@ -157,23 +157,37 @@ pub mod node {
 
                 Payload::Blockchain { blockchain } => {
                     if self.blockchain.blocks.len() < blockchain.blocks.len() {
-                        info!("[{}] Received a fresher blockchain. Updating", self.address);
+                        info!(
+                            "[{}] Received a fresher blockchain. Before Update: Blockchain length = {}",
+                            self.address,
+                            self.blockchain.length,
+                        );
                         self.blockchain = blockchain;
+                        info!(
+                            "[{}] After Update: Blockchain length = {}",
+                            self.address, self.blockchain.length,
+                        );
                     }
                 }
 
                 Payload::Block { block } => {
-                    if block.index == 1 + self.blockchain.length
+                    if block.index == self.blockchain.length
                         && block.timestamp >= self.blockchain.blocks.last().unwrap().timestamp
                     {
-                        println!(
-                            "It's a valid block: {}, {}",
-                            &block.index, &self.blockchain.length
+                        info!(
+                            "[{}] Received a valid block: {}, {}",
+                            &self.address, &block.index, &self.blockchain.length
                         );
                     } else {
-                        println!(
-                            "It's not a valid block: {}, {}",
-                            &block.index, &self.blockchain.length
+                        warn!(
+                            "[{}] Received an invalid block: {}, {}",
+                            &self.address, &block.index, &self.blockchain.length
+                        );
+                        warn!(
+                            "[{}] Invalid block details: {}, {}",
+                            &self.address,
+                            hex::encode(&block.hash),
+                            hex::encode(&self.blockchain.last_hash)
                         );
                     }
                 }

@@ -98,8 +98,14 @@ async fn main() {
     //     .await;
     // handle_result(result, "UpdateBlockchainFromKnownNodes");
 
-    // let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
-    // handle_result(result, "PrintInfo");
+    let result = nodes[0].send(GenericMessage(Payload::PrintInfo)).await;
+    handle_result(result, "PrintInfo");
+
+    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
+    handle_result(result, "PrintInfo");
+
+    let result = nodes[2].send(GenericMessage(Payload::PrintInfo)).await;
+    handle_result(result, "PrintInfo");
 
     System::current().stop();
 }
