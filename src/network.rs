@@ -5,7 +5,7 @@ pub mod node {
     use crate::blockchain::BlockChain;
 
     use actix::prelude::*;
-    use log::info;
+    use log::{info, trace};
 
     type Bytes = Vec<u8>;
 
@@ -23,13 +23,21 @@ pub mod node {
             to: Bytes,
             amt: i32,
         },
+
+        #[allow(dead_code)]
         PrintInfo,
+
+        #[allow(dead_code)]
         UpdateBlockchainFromKnownNodes,
+
         RequestBlockchain {
             sender_addr: actix::Addr<Node>,
         },
         Blockchain {
             blockchain: BlockChain,
+        },
+        Block {
+            block: Block,
         },
     }
 
@@ -68,7 +76,14 @@ pub mod node {
                 self.blockchain.length,
                 self.blockchain.last_hash.clone(),
             );
-            self.blockchain.add_block(block);
+            self.blockchain.add_block(block.clone());
+
+            for addr in self.known_nodes.iter() {
+                addr.try_send(GenericMessage(Payload::Block {
+                    block: block.clone(),
+                }))
+                .expect(&format!("Couldn't send updated block to {:?}", addr));
+            }
         }
     }
 
@@ -80,7 +95,7 @@ pub mod node {
         type Result = Result<GenericResponse, String>;
 
         fn handle(&mut self, msg: GenericMessage, ctx: &mut Context<Self>) -> Self::Result {
-            info!("[{}]: Received {:?}", self.address, msg.0);
+            trace!("[{}]: Received {:?}", self.address, msg.0);
             match msg.0 {
                 Payload::CreateBlockchain { address } => {
                     self.create_blockchain(&address);
@@ -91,10 +106,6 @@ pub mod node {
                         }))
                         .expect(&format!("Couldn't send blockchain to {:?}", addr));
                     }
-                }
-
-                Payload::AddTransactionAndMine { from, to, amt } => {
-                    self.make_transaction_and_mine(from.clone(), to.clone(), amt);
                 }
 
                 Payload::UpdateRoutingInfo { addresses } => {
@@ -112,6 +123,16 @@ pub mod node {
                     );
                 }
 
+                Payload::UpdateBlockchainFromKnownNodes => {
+                    let random_node = &self.known_nodes[0];
+
+                    random_node
+                        .try_send(GenericMessage(Payload::RequestBlockchain {
+                            sender_addr: ctx.address(),
+                        }))
+                        .expect("Could not send the get blockchain request")
+                }
+
                 Payload::PrintInfo => {
                     println!("{:?}", self);
 
@@ -122,14 +143,8 @@ pub mod node {
                     println!("{}", self.blockchain);
                 }
 
-                Payload::UpdateBlockchainFromKnownNodes => {
-                    let random_node = &self.known_nodes[0];
-
-                    random_node
-                        .try_send(GenericMessage(Payload::RequestBlockchain {
-                            sender_addr: ctx.address(),
-                        }))
-                        .expect("Could not send the get blockchain request")
+                Payload::AddTransactionAndMine { from, to, amt } => {
+                    self.make_transaction_and_mine(from.clone(), to.clone(), amt);
                 }
 
                 Payload::RequestBlockchain { sender_addr } => {
@@ -144,6 +159,22 @@ pub mod node {
                     if self.blockchain.blocks.len() < blockchain.blocks.len() {
                         info!("[{}] Received a fresher blockchain. Updating", self.address);
                         self.blockchain = blockchain;
+                    }
+                }
+
+                Payload::Block { block } => {
+                    if block.index == 1 + self.blockchain.length
+                        && block.timestamp >= self.blockchain.blocks.last().unwrap().timestamp
+                    {
+                        println!(
+                            "It's a valid block: {}, {}",
+                            &block.index, &self.blockchain.length
+                        );
+                    } else {
+                        println!(
+                            "It's not a valid block: {}, {}",
+                            &block.index, &self.blockchain.length
+                        );
                     }
                 }
             }

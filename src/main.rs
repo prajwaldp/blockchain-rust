@@ -41,6 +41,7 @@ async fn main() {
         .map(|n| n.clone().recipient())
         .collect::<Vec<Recipient<GenericMessage>>>();
 
+    // Creating a full network
     for node in nodes.iter() {
         let res = node
             .send(GenericMessage(Payload::UpdateRoutingInfo {
@@ -80,13 +81,13 @@ async fn main() {
         .await;
     handle_result(result, "AddTransactionAndMine");
 
-    let result = nodes[1]
-        .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
-        .await;
-    handle_result(result, "UpdateBlockchainFromKnownNodes");
+    // let result = nodes[1]
+    //     .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
+    //     .await;
+    // handle_result(result, "UpdateBlockchainFromKnownNodes");
 
-    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
-    handle_result(result, "PrintInfo");
+    // let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
+    // handle_result(result, "PrintInfo");
 
     System::current().stop();
 }
