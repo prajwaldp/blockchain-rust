@@ -6,17 +6,19 @@ pub mod transaction;
 pub mod txn;
 pub mod wallet;
 
+use crate::util::constants::BLOCK_MEMORY_POOL_SIZE;
+use crate::util::types::Bytes;
 use block::Block;
+use log::{info, warn};
 use transaction::Transaction;
 use txn::TxnOutput;
-
-type Bytes = Vec<u8>;
 
 #[derive(Clone, Debug, Default)]
 pub struct BlockChain {
     pub blocks: Vec<Block>,
     pub last_hash: Vec<u8>,
     pub length: i32,
+    memory_pool: Vec<Vec<Block>>,
 }
 
 impl BlockChain {
@@ -28,6 +30,7 @@ impl BlockChain {
             blocks: vec![genesis_block.clone()],
             last_hash: genesis_block.hash,
             length: 1,
+            memory_pool: vec![],
         }
     }
 
@@ -36,6 +39,7 @@ impl BlockChain {
             blocks: vec![],
             last_hash: vec![],
             length: 0,
+            memory_pool: vec![],
         }
     }
 
@@ -44,6 +48,78 @@ impl BlockChain {
         self.blocks.push(block);
         self.last_hash = last_hash;
         self.length += 1;
+    }
+
+    pub fn add_block_to_memory_pool(&mut self, block: Block) {
+        if self.memory_pool.is_empty() {
+            info!("[Blockchain] Memory Pool is empty");
+
+            if block.index == self.length
+                && block.timestamp >= self.blocks.last().unwrap().timestamp
+                && block.prev_hash == self.last_hash
+            {
+                info!(
+                    "[Blockchain] Added block {} to a new candidate in the memory pool",
+                    hex::encode(&block.hash)
+                );
+                self.memory_pool.push(vec![block]);
+            } else {
+                warn!(
+                    "[Blockchain] Cannot add the block {} (index: {}, timestamp: {}) to blockchain with last hash {} and length {}",
+                    hex::encode(&block.hash),
+                    &block.index,
+                    &block.timestamp,
+                    hex::encode(&self.last_hash),
+                    &self.length
+                );
+            }
+        } else {
+            // 1. Push the block to all inner Vectors with matching hash, index
+            //    and timestamp
+            // 2. Keep track of the length
+
+            for candidate in self.memory_pool.iter_mut() {
+                let last_block = candidate.last().unwrap();
+                if block.index == last_block.index + 1
+                    && block.timestamp >= last_block.timestamp
+                    && block.prev_hash == last_block.hash
+                {
+                    info!(
+                        "[Blockchain] Added block {} to an existing candidate in the memory pool",
+                        hex::encode(&block.hash)
+                    );
+                    candidate.push(block.clone());
+                }
+            }
+        }
+
+        self.clear_memory_pool();
+    }
+
+    pub fn clear_memory_pool(&mut self) {
+        let mut selected_candidate = Vec::<Block>::new();
+        let mut candidate_found: bool = false;
+
+        for candidate in self.memory_pool.iter_mut() {
+            if candidate.len() == BLOCK_MEMORY_POOL_SIZE {
+                selected_candidate = candidate.clone();
+                candidate_found = true;
+                info!("[Blockchain] Memory Pool Capacity Reached");
+                break;
+            }
+        }
+
+        for block in selected_candidate.iter() {
+            info!(
+                "[Blockchain] Adding block {} to blockchain",
+                hex::encode(&block.hash)
+            );
+            self.add_block(block.clone());
+        }
+
+        if candidate_found {
+            self.memory_pool = vec![];
+        }
     }
 
     pub fn find_unspent_transactions(&self, public_key_hash: &Bytes) -> Vec<&Transaction> {

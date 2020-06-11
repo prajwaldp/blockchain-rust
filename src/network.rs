@@ -6,7 +6,7 @@ pub mod node {
     use crate::util::types::Bytes;
 
     use actix::prelude::*;
-    use log::{info, trace, warn};
+    use log::{info, trace};
     use std::time::Instant;
 
     // Refactor: semantically order message types in enums
@@ -183,26 +183,11 @@ pub mod node {
                 }
 
                 Payload::Block { block } => {
-                    if block.index == self.blockchain.length
-                        && block.timestamp >= self.blockchain.blocks.last().unwrap().timestamp
-                        && block.prev_hash == self.blockchain.last_hash
-                    {
-                        info!(
-                            "[{}] Received a valid block to add to the blockchain",
-                            &self.address
-                        );
-
-                        self.blockchain.add_block(block);
-                    } else {
-                        warn!(
-                            "[{}] Cannot add the block {} (index: {}, timestamp: {}) to blockchain with last hash {} and length {}",
-                            &self.address,
-                            hex::encode(&block.hash),
-                            &block.index, &block.timestamp,
-                            hex::encode(&self.blockchain.last_hash),
-                            &self.blockchain.length
-                        );
-                    }
+                    info!(
+                        "[{}] Received a block to add to the blockchain",
+                        &self.address
+                    );
+                    self.blockchain.add_block_to_memory_pool(block);
                 }
             }
             Ok(GenericResponse::OK)

@@ -12,6 +12,7 @@ pub mod constants {
     pub const CHECKSUM_LENGTH: usize = 4;
     pub const VERSION: u8 = 0x00;
     pub const DIFFICULTY: u128 = 0x0000ffffffffffffffffffffffffffff;
+    pub const BLOCK_MEMORY_POOL_SIZE: usize = 2;
 }
 
 pub mod types {
