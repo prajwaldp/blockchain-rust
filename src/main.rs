@@ -10,6 +10,7 @@ use std::fs::File;
 
 use blockchain::wallet::Wallet;
 use network::node::*;
+use network::server::{Server, ServerCommand};
 use util::helper_functions::handle_result;
 
 #[actix_rt::main]
@@ -26,6 +27,10 @@ async fn main() {
     .unwrap();
 
     let args: Vec<String> = env::args().collect();
+
+    let server_addr = Server::init().start();
+    let result = server_addr.try_send(ServerCommand("Listen"));
+    handle_result(result, "Error getting the server to listen");
 
     if args.len() != 3 {
         println!("\nUsage: {} number-of-nodes number-of-wallets", args[0]);
@@ -44,22 +49,20 @@ async fn main() {
 
     for i in 0..n_nodes {
         let node_name = format!("Node-{}", i);
-        let addr = Node::default(node_name).start();
+        let addr = Node::default(node_name, server_addr.clone()).start();
         nodes.push(addr);
     }
 
-    let recepient_addresses = nodes
+    let recipient_addresses = nodes
         .iter()
         .map(|n| n.clone().recipient())
         .collect::<Vec<Recipient<GenericMessage>>>();
 
     // Creating a full network
     for node in nodes.iter() {
-        let res = node
-            .send(GenericMessage(Payload::UpdateRoutingInfo {
-                addresses: recepient_addresses.clone(),
-            }))
-            .await;
+        let res = node.try_send(GenericMessage(Payload::UpdateRoutingInfo {
+            addresses: recipient_addresses.clone(),
+        }));
         handle_result(res, "UpdateRoutingInfo");
     }
 
@@ -68,44 +71,33 @@ async fn main() {
         wallets.push(wallet);
     }
 
-    let result = nodes[0]
-        .send(GenericMessage(Payload::CreateBlockchain {
-            address: wallets[0].address.clone(),
-        }))
-        .await;
+    let result = nodes[0].try_send(GenericMessage(Payload::CreateBlockchain {
+        address: wallets[0].address.clone(),
+    }));
     handle_result(result, "CreateBlockchain");
 
-    let result = nodes[0]
-        .send(GenericMessage(Payload::AddTransactionAndMine {
-            from: wallets[0].address.clone(),
-            to: wallets[1].address.clone(),
+    // Simulation Seed Money
+    for i in 0..(n_wallets - 1) {
+        let result = nodes[0].try_send(GenericMessage(Payload::AddTransactionAndMine {
+            from: wallets[i as usize].address.clone(),
+            to: wallets[(i + 1) as usize].address.clone(),
             amt: 10,
-        }))
-        .await;
-    handle_result(result, "AddTransactionAndMine");
+        }));
+        handle_result(result, "AddTransactionAndMine");
+    }
 
-    let result = nodes[0]
-        .send(GenericMessage(Payload::AddTransactionAndMine {
-            from: wallets[1].address.clone(),
-            to: wallets[2].address.clone(),
-            amt: 10,
-        }))
-        .await;
-    handle_result(result, "AddTransactionAndMine");
-
-    // let result = nodes[1]
-    //     .send(GenericMessage(Payload::UpdateBlockchainFromKnownNodes))
-    //     .await;
-    // handle_result(result, "UpdateBlockchainFromKnownNodes");
-
-    let result = nodes[0].send(GenericMessage(Payload::PrintInfo)).await;
-    handle_result(result, "PrintInfo");
-
-    let result = nodes[1].send(GenericMessage(Payload::PrintInfo)).await;
-    handle_result(result, "PrintInfo");
-
-    let result = nodes[2].send(GenericMessage(Payload::PrintInfo)).await;
-    handle_result(result, "PrintInfo");
+    // Get Wallet Balances
+    println!("\nWallet Balances");
+    println!("===============");
+    for public_key_hash in wallets.iter().map(|w| w.public_key_hash.clone()) {
+        print!("{} : ", hex::encode(&public_key_hash));
+        let result = nodes[1]
+            .send(GenericMessage(Payload::PrintWalletBalance {
+                public_key_hash: public_key_hash,
+            }))
+            .await;
+        handle_result(result, "PrintWalletBalance")
+    }
 
     System::current().stop();
 }
