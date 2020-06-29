@@ -108,7 +108,7 @@ async fn main() {
                 "nodeId":"Main",
                 "eventId":"CreatedWallet",
                 "details":{{
-                    "wallletAddress": {:?}
+                    "walletAddress": {:?}
                 }}
             }}"#,
             hex::encode(&wallet_address)

@@ -268,19 +268,23 @@ impl Handler<GenericMessage> for Node {
                         self.address, self.blockchain.length,
                     );
 
+                    let j = serde_json::to_string(&self.blockchain).unwrap();
+
                     let payload = format!(
                         r#"{{
                             "nodeId":"{}",
                             "eventId":"{:?}",
                             "details":{{
                                 "oldLength": {},
-                                "newLength": {}
+                                "newLength": {},
+                                "rawBlockchainData": {}
                             }}
                         }}"#,
                         &self.address,
                         Events::ReceivedFresherBlockchain,
                         old_blockchain_length,
-                        new_blockchain_length
+                        new_blockchain_length,
+                        j
                     );
 
                     broadcast!(self.server_addr, payload);
@@ -296,9 +300,9 @@ impl Handler<GenericMessage> for Node {
 
                 let payload = format!(
                     r#"{{
-                            "nodeId":"{}",
-                            "eventId":"{:?}"
-                        }}"#,
+                        "nodeId":"{}",
+                        "eventId":"{:?}"
+                    }}"#,
                     &self.address,
                     Events::ReceivedNewBlock
                 );
