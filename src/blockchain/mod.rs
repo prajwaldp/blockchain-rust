@@ -10,10 +10,11 @@ use crate::util::constants::BLOCK_MEMORY_POOL_SIZE;
 use crate::util::types::Bytes;
 use block::Block;
 use log::{info, warn};
+use serde::Serialize;
 use transaction::Transaction;
 use txn::TxnOutput;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct BlockChain {
     pub blocks: Vec<Block>,
     pub last_hash: Vec<u8>,

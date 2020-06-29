@@ -5,8 +5,6 @@ use log::*;
 use std::net::TcpListener;
 use tungstenite::{accept, Message};
 
-use crate::util::types::Bytes;
-
 pub struct Server {
     listener: TcpListener,
     connections: Vec<tungstenite::protocol::WebSocket<std::net::TcpStream>>,
@@ -45,7 +43,7 @@ impl Server {
             let result = socket.write_message(msg);
 
             match result {
-                Ok(_) => println!("Broadcasted to socket {:?}", socket),
+                Ok(_) => (),
                 Err(e) => println!("Error {:?} broadcasting to socket {:?}", e, socket),
             };
         }

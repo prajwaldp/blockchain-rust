@@ -5,13 +5,14 @@ use crate::util::traits::Hashable;
 
 use rand::prelude::*;
 use secp256k1::{Message, Secp256k1};
+use serde::Serialize;
 use std::collections::HashMap;
 
 const COINBASE_REWARD: i32 = 20;
 
 type Bytes = Vec<u8>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Transaction {
     pub id: Vec<u8>,
     pub inputs: Vec<TxnInput>,

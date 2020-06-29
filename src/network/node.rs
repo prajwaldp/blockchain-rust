@@ -1,12 +1,24 @@
 use crate::blockchain::block::Block;
 use crate::blockchain::transaction::Transaction;
 use crate::blockchain::BlockChain;
+use crate::broadcast;
 use crate::network::server::{Server, ServerMessage};
 use crate::util::types::Bytes;
 
 use actix::prelude::*;
 use log::{info, trace};
+use serde_json::Value;
 use std::time::Instant;
+
+#[derive(Debug)]
+pub enum Events {
+    CreatedBlockchain = 0,
+    MinedTransaction = 1,
+    UpdatedRoutingInfo = 2,
+    DownloadedBlockchain = 3,
+    ReceivedFresherBlockchain = 4,
+    ReceivedNewBlock = 5,
+}
 
 // Refactor: semantically order message types in enums
 #[derive(Debug)]
@@ -96,13 +108,20 @@ impl Node {
             now.elapsed().as_secs()
         );
 
-        self.server_addr
-            .try_send(ServerMessage(format!(
-                "[{}] Mined successfully in {} seconds",
-                &self.address,
-                now.elapsed().as_secs()
-            )))
-            .expect("Couldn't reach server");
+        let payload = format!(
+            r#"{{
+                "nodeId":"{}",
+                "eventId":"{:?}",
+                "details": {{
+                    "timeTaken": {},
+                }}
+            }}"#,
+            &self.address,
+            Events::MinedTransaction,
+            now.elapsed().as_secs()
+        );
+
+        broadcast!(self.server_addr, payload);
 
         self.blockchain.add_block(block.clone());
 
@@ -140,6 +159,23 @@ impl Handler<GenericMessage> for Node {
                     }))
                     .expect(&format!("Couldn't send blockchain to {:?}", addr));
                 }
+
+                let j = serde_json::to_string(&self.blockchain).unwrap();
+
+                let payload = format!(
+                    r#"{{
+                        "nodeId":"{}",
+                        "eventId":"{:?}",
+                        "details":{{
+                            "rawBlockchainData": {}
+                        }}
+                    }}"#,
+                    &self.address,
+                    Events::CreatedBlockchain,
+                    j
+                );
+
+                broadcast!(self.server_addr, payload);
             }
 
             Payload::UpdateRoutingInfo { addresses } => {
@@ -155,6 +191,21 @@ impl Handler<GenericMessage> for Node {
                     self.address,
                     self.known_nodes.len()
                 );
+
+                let payload = format!(
+                    r#"{{
+                        "nodeId":"{}",
+                        "eventId":"{:?}",
+                        "details":{{
+                            "neighbourCount": {}
+                        }}
+                    }}"#,
+                    &self.address,
+                    Events::UpdatedRoutingInfo,
+                    format!("{:?}", self.known_nodes.len())
+                );
+
+                broadcast!(self.server_addr, payload);
             }
 
             Payload::UpdateBlockchainFromKnownNodes => {
@@ -164,7 +215,24 @@ impl Handler<GenericMessage> for Node {
                     .try_send(GenericMessage(Payload::RequestBlockchain {
                         sender_addr: ctx.address(),
                     }))
-                    .expect("Could not send the get blockchain request")
+                    .expect("Could not send the get blockchain request");
+
+                let j = serde_json::to_string(&self.blockchain).unwrap();
+
+                let payload = format!(
+                    r#"{{
+                        "nodeId":"{}",
+                        "eventId":"{:?}",
+                        "details":{{
+                            "rawBlockchainData": {}
+                        }}
+                    }}"#,
+                    &self.address,
+                    Events::DownloadedBlockchain,
+                    j
+                );
+
+                broadcast!(self.server_addr, payload);
             }
 
             Payload::PrintInfo => {
@@ -186,15 +254,37 @@ impl Handler<GenericMessage> for Node {
 
             Payload::Blockchain { blockchain } => {
                 if self.blockchain.blocks.len() < blockchain.blocks.len() {
+                    let old_blockchain_length = self.blockchain.length;
+
                     info!(
                         "[{}] Received a fresher blockchain. Before Update: Blockchain length = {}",
-                        self.address, self.blockchain.length,
+                        self.address, old_blockchain_length,
                     );
+
                     self.blockchain = blockchain;
+                    let new_blockchain_length = self.blockchain.length;
+
                     info!(
                         "[{}] After Update: Blockchain length = {}",
                         self.address, self.blockchain.length,
                     );
+
+                    let payload = format!(
+                        r#"{{
+                            "nodeId":"{}",
+                            "eventId":"{:?}",
+                            "details":{{
+                                "oldLength": {},
+                                "newLength": {}
+                            }}
+                        }}"#,
+                        &self.address,
+                        Events::ReceivedFresherBlockchain,
+                        old_blockchain_length,
+                        new_blockchain_length
+                    );
+
+                    broadcast!(self.server_addr, payload);
                 }
             }
 
@@ -204,6 +294,17 @@ impl Handler<GenericMessage> for Node {
                     &self.address
                 );
                 self.blockchain.add_block_to_memory_pool(block);
+
+                let payload = format!(
+                    r#"{{
+                            "nodeId":"{}",
+                            "eventId":"{:?}"
+                        }}"#,
+                    &self.address,
+                    Events::ReceivedNewBlock
+                );
+
+                broadcast!(self.server_addr, payload);
             }
 
             Payload::PrintWalletBalance { public_key_hash } => {

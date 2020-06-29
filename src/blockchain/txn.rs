@@ -1,12 +1,13 @@
 use crate::blockchain::wallet::Wallet;
 use crate::util::traits::Hashable;
+use crate::util::types::Bytes;
 
-type Bytes = Vec<u8>;
+use serde::Serialize;
 
 // TODO: Move constants to a module
 const CHECKSUM_LENGTH: usize = 4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TxnInput {
     pub id: Bytes,         // the hash of the transaction
     pub out: i32,          // index where the output appears
@@ -33,7 +34,7 @@ impl TxnInput {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TxnOutput {
     pub value: i32,
     pub public_key_hash: Bytes, // needed to unlock the tokens in the `value` field

@@ -5,9 +5,10 @@ use crate::util::traits::Hashable;
 use crate::util::types::Bytes;
 
 use chrono::Utc;
+use serde::Serialize;
 use std::convert::TryInto;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Block {
     pub index: i32,
     pub timestamp: i64, // i32 is sufficient until Jan 19, 2038. But chrono uses i64
