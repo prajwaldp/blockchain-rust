@@ -7,7 +7,6 @@ use crate::util::types::Bytes;
 
 use actix::prelude::*;
 use log::{info, trace};
-use serde_json::Value;
 use std::time::Instant;
 
 #[derive(Debug)]
@@ -113,7 +112,7 @@ impl Node {
                 "nodeId":"{}",
                 "eventId":"{:?}",
                 "details": {{
-                    "timeTaken": {},
+                    "timeTaken": {}
                 }}
             }}"#,
             &self.address,
