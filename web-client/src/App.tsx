@@ -1,125 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { isPrimitive } from "util";
+import "./assets/tailwind.generated.css";
 
-interface Node {
-  id: string; // node name
-  messages: string[];
-  neighbourCount: number;
-  blockchain: Blockchain;
-}
-
-interface Wallet {
-  id: string; // wallet address
-  balance: number;
-}
-
-interface TransactionInput {
-  id: string;
-  out: number;
-  signature: string;
-  publicKey: string;
-}
-
-interface TransactionOutput {
-  value: number;
-  publicKeyHash: string;
-}
-
-interface Transaction {
-  id: string;
-  inputs: TransactionInput[];
-  outputs: TransactionOutput[];
-}
-
-interface Block {
-  index: number;
-  timestamp: number;
-  hash: string;
-  proofOfWork: number;
-  nonce: number;
-  transactions: Transaction[];
-}
-
-interface Blockchain {
-  length: number;
-  blocks: Block[];
-}
-
-function toHexString(byteArray: Array<32>) {
-  return Array.from(byteArray, function (byte) {
-    return ("0" + (byte & 0xff).toString(16)).slice(-2);
-  }).join("");
-}
-
-function processRawBlockData(data: any) {
-  let index: number = data.index;
-  let timestamp: number = data.timestamp;
-  let hash: string = toHexString(data.hash);
-  let proofOfWork: number = data.difficulty;
-  let nonce: number = data.nonce;
-
-  let transactions: Transaction[] = data.transactions.map(
-    (txn: any, _idx: any) => {
-      let transactionInputs: TransactionInput[] = txn.inputs.map(
-        (i: any, _idx: any) => {
-          let ip: TransactionInput = {
-            id: toHexString(i.id),
-            out: i.out,
-            signature: toHexString(i.signature),
-            publicKey: toHexString(i.public_key),
-          };
-
-          return ip;
-        }
-      );
-
-      let transactionOutputs: TransactionOutput[] = txn.outputs.map(
-        (i: any, _idx: any) => {
-          let op: TransactionOutput = {
-            value: i.value,
-            publicKeyHash: toHexString(i.public_key_hash),
-          };
-
-          return op;
-        }
-      );
-
-      let t: Transaction = {
-        id: txn.id,
-        inputs: transactionInputs,
-        outputs: transactionOutputs,
-      };
-
-      return t;
-    }
-  );
-
-  let b: Block = {
-    index,
-    timestamp,
-    hash,
-    proofOfWork,
-    nonce,
-    transactions,
-  };
-
-  return b;
-}
-
-function processRawBlockchainData(data: any) {
-  let blockchain: Blockchain = {
-    length: data.length,
-    blocks: data.blocks.map((block: any, _i: number) =>
-      processRawBlockData(block)
-    ),
-  };
-
-  return blockchain;
-}
+import { Node, Wallet, Blockchain } from "./models";
+import { parseBlockchain } from "./util";
 
 function App() {
   const ws = useRef<WebSocket | null>(null);
+
   const [messages, setMessages] = useState<Array<any>>([]);
   const [message, setMessage] = useState<string>("{}");
 
@@ -176,7 +64,7 @@ function App() {
 
         setNodes(updatedNodes);
       } else if (j.eventId === "CreatedBlockchain") {
-        let blockchain: Blockchain = processRawBlockchainData(
+        let blockchain: Blockchain = parseBlockchain(
           j.details.rawBlockchainData
         );
 
@@ -193,11 +81,9 @@ function App() {
 
         setNodes(updatedNodes);
       } else if (j.eventId === "ReceivedFresherBlockchain") {
-        let blockchain: Blockchain = processRawBlockchainData(
+        let blockchain: Blockchain = parseBlockchain(
           j.details.rawBlockchainData
         );
-
-        console.log(j.details.rawBlockchainData);
 
         let updatedNodes = nodes.map((node, _idx) => {
           if (node.id === j.nodeId) {
@@ -238,34 +124,103 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Nodes</h1>
-      {nodes.map((node, i) => {
-        return (
-          <div key={i}>
-            {node.id}: {JSON.stringify(node.messages)} : {node.neighbourCount}
-            <p>Blockchain ({node.blockchain.length} blocks)</p>
-            {node.blockchain.blocks.map((block, i) => {
+      <header className="p-4 text-4xl font-light text-center text-blue-600">
+        <h1>Real-time Blockchain Dashboard</h1>
+      </header>
+      <div className="flex p-5 bg-gray-100">
+        <div className="w-1/2">
+          <h1 className="text-2xl text-gray-700 font-bold text-center">
+            Nodes in the Network
+          </h1>
+          <p className="text-sm text-gray-500 text-center">
+            {nodes.length} nodes in the network
+          </p>
+
+          <div className="p-5">
+            {nodes.map((node, i) => {
               return (
-                <div key={i}>
-                  <p>index: {block.index}</p>
-                  <p>timestamp: {block.timestamp}</p>
-                  <p>hash: {block.hash}</p>
-                  <p>proof of work: {block.proofOfWork}</p>
-                  <p>nonce: {block.nonce}</p>
-                  <p>Transactions: {JSON.stringify(block.transactions)}</p>
+                <div key={i} className="bg-white p-3 rounded mb-5">
+                  <h3 className="text-2xl text-blue-300 mb-3">{node.id}</h3>
+
+                  <p className="text-sm text-gray-600">
+                    Connected to {node.neighbourCount}, Blockchain copy has{" "}
+                    {node.blockchain.length} block(s), And has{" "}
+                    {node.messages.length} message(s)
+                  </p>
+
+                  <p className="text-xl text-gray-600 mt-3">Blocks:</p>
+
+                  {node.blockchain.blocks.map((block, i) => {
+                    return (
+                      <div
+                        key={i}
+                        className="bg-gray-200 text-sm p-3 mb-2 text-gray-600"
+                      >
+                        <p className="font-bold">Index: {block.index}</p>
+                        <p>Timestamp: {block.timestamp}</p>
+                        <p>Hash: {block.hash}</p>
+                        <p>Proof of Work: {block.proofOfWork}</p>
+                        <p>Nonce: {block.nonce}</p>
+                        {block.transactions.map((t, idx) => {
+                          return (
+                            <div className="border-gray-300 p-2" key={idx}>
+                              <p className="truncate">Transaction ID: {t.id}</p>
+
+                              <p>Inputs</p>
+                              {t.inputs.map((ip, ip_idx) => {
+                                return (
+                                  <div
+                                    className="bg-gray-900 p-1 text-gray-200"
+                                    key={ip_idx}
+                                  >
+                                    <p>ID: {ip.id}</p>
+                                    <p>Out: {ip.out}</p>
+                                    <p>Signature: {ip.signature}</p>
+                                    <p>Public Key: {ip.publicKey}</p>
+                                  </div>
+                                );
+                              })}
+
+                              <p>Outputs</p>
+                              {t.outputs.map((op, op_idx) => {
+                                return (
+                                  <div
+                                    className="bg-gray-900 p-1 text-gray-200"
+                                    key={op_idx}
+                                  >
+                                    <p>Value: {op.value}</p>
+                                    <p>Public Key: {op.publicKeyHash}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
-        );
-      })}
+        </div>
 
-      <h1>Wallets</h1>
-      <ul>
-        {wallets.map((wallet, i) => {
-          return <li key={i}>{wallet.id}</li>;
-        })}
-      </ul>
+        <div className="w-1/2 border-l-2">
+          <h1 className="text-2xl text-gray-700 font-bold text-center">
+            Wallets
+          </h1>
+          <p className="text-sm text-gray-500 text-center">
+            {wallets.length} wallets registered
+          </p>
+          {wallets.map((wallet, i) => {
+            return (
+              <div className="text-sm text-gray-600" key={i}>
+                {wallet.id}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
